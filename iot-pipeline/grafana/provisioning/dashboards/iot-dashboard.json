@@ -1,0 +1,129 @@
+{
+  "id": null,
+  "uid": "iot-dashboard",
+  "title": "IoT Sensor Aggregates",
+  "tags": ["iot"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Average Temperature",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "PDEE91DDB90597936"
+          },
+          "rawSql": "SELECT window_start as time, avg_temp as value FROM sensor_aggregates WHERE window_start >= NOW() - INTERVAL 1 HOUR ORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "celsius"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Average Humidity",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "PDEE91DDB90597936"
+          },
+          "rawSql": "SELECT window_start as time, avg_humidity as value FROM sensor_aggregates WHERE window_start >= NOW() - INTERVAL 1 HOUR ORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Average Pressure",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "PDEE91DDB90597936"
+          },
+          "rawSql": "SELECT window_start as time, avg_pressure as value FROM sensor_aggregates WHERE window_start >= NOW() - INTERVAL 1 HOUR ORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "pressurembar"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Count",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "PDEE91DDB90597936"
+          },
+          "rawSql": "SELECT window_start as time, count as value FROM sensor_aggregates WHERE window_start >= NOW() - INTERVAL 1 HOUR ORDER BY time",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        }
+      }
+    }
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  }
+}
