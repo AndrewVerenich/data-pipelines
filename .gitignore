@@ -35,7 +35,3 @@ hs_err_pid*
 .gradle
 !/gradle/wrapper/gradle-wrapper.properties
 !/gradle/wrapper/gradle-wrapper.jar
-.qodo
-.vscode/
-/.vscode/
-mysql_data
