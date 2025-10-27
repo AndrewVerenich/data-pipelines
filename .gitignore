@@ -1,29 +1,41 @@
-### IntelliJ IDEA ###
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
+# Created by .ignore support plugin (hsz.mobi)
+# IntelliJ project files
+build
+bin
+.idea
+*.iml
+*.mv.db
+*.trace.db
+logs
+out
+gen
+docs/index.html
+docs/index.pdf
 
-### Eclipse ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
+### Java template
+*.class
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
+# Package Files #
+*.jar
+!gradle-wrapper.jar
+*.war
+*.ear
 
-### VS Code ###
-.vscode/
+# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+hs_err_pid*
 
-### Mac OS ###
+*~
 .DS_Store
+*.log
+
+# asciidoc
+.asciidoctor
+
+# Gradle
+.gradle
+!/gradle/wrapper/gradle-wrapper.properties
+!/gradle/wrapper/gradle-wrapper.jar
+.qodo
+.vscode/
+/.vscode/
+mysql_data
