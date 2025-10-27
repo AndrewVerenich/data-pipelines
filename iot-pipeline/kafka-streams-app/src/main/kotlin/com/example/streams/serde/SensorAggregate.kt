@@ -18,4 +18,7 @@ class SensorAggregate(
   fun avgHum(): Double = sumHum / count
   fun avgPres(): Double = sumPres / count
   fun getCount(): Long = count
+  fun getSumTemp(): Double = sumTemp
+  fun getSumHum(): Double = sumHum
+  fun getSumPres(): Double = sumPres
 }
