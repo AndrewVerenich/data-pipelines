@@ -20,7 +20,8 @@ data class Payload(
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class SensorData(
     val id: Long?,
-    val device_id: String?,
+    @JsonProperty("device_id")
+    val deviceId: String?,
     val humidity: Double?,
     val pressure: Double?,
     val temperature: Double?,

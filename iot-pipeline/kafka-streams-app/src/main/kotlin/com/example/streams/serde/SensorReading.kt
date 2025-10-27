@@ -10,7 +10,7 @@ data class SensorReading(
 
 fun fromDebeziumEvent(payload: com.example.streams.Payload): SensorReading? {
     val sensorData = payload.after ?: return null
-    val deviceId = sensorData.device_id ?: return null
+    val deviceId = sensorData.deviceId ?: return null
     val temperature = sensorData.temperature ?: return null
     val humidity = sensorData.humidity ?: return null
     val pressure = sensorData.pressure ?: return null

@@ -3,52 +3,38 @@ package com.example.streams.stream
 import com.example.streams.DebeziumEvent
 import com.example.streams.serde.SensorAggregate
 import com.example.streams.serde.SensorAggregateSerde
+import com.example.streams.serde.SensorReading
 import com.example.streams.serde.SensorReadingSerde
 import com.example.streams.serde.fromDebeziumEvent
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.google.gson.Gson
 import org.apache.kafka.common.serialization.Serdes
 import org.apache.kafka.streams.StreamsBuilder
+import org.apache.kafka.streams.kstream.Consumed
 import org.apache.kafka.streams.kstream.Grouped
 import org.apache.kafka.streams.kstream.KStream
 import org.apache.kafka.streams.kstream.Materialized
 import org.apache.kafka.streams.kstream.TimeWindows
+import org.apache.kafka.streams.kstream.Windowed
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.core.env.Environment
-import org.springframework.stereotype.Component
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 import java.time.Duration
 
-@Component
-class StreamProcessor {
+@Configuration
+class StreamConfig(
+  private val kStreamBuilder: StreamsBuilder,
+) {
 
-  val logger = LoggerFactory.getLogger(StreamProcessor::class.java)
+  private val logger = LoggerFactory.getLogger(StreamConfig::class.java)
 
-  @Autowired
-  fun build(builder: StreamsBuilder, env: Environment) {
-    val stream: KStream<String, String> = builder.stream("iot.public.sensor_data")
-    val mapper = jacksonObjectMapper()
-    val stringSerde = Serdes.String()
-    val sensorReadingSerde = SensorReadingSerde()
-
-    stream
-      .mapValues { json ->
-        try {
-          val debeziumEvent = mapper.readValue(json, DebeziumEvent::class.java)
-          if (debeziumEvent.payload.operation == "c") {
-            fromDebeziumEvent(debeziumEvent.payload)
-          } else {
-            null
-          }
-        } catch (e: Exception) {
-          logger.warn("Failed to parse message: ${e.message}")
-          null
-        }
-      }
-      .filter { _, r -> r != null }
-      .filter { _, r -> r?.deviceId != null }
-      .mapValues { _, r -> r!! }
-      .groupBy ({ _, r -> r.deviceId }, Grouped.with(stringSerde, sensorReadingSerde))
+  @Bean
+  fun aggregateIotStream(): KStream<Windowed<String?>?, String?> {
+    return kStreamBuilder.stream("iot.public.sensor_data", Consumed.with(stringSerde, stringSerde))
+      .mapValues { json -> deserializeJson(json) }
+      .filter { _, message -> message != null }
+      .mapValues { _, message -> message!! }
+      .groupBy({ _, r -> r.deviceId }, Grouped.with(stringSerde, sensorReadingSerde))
       .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofSeconds(10)))
       .aggregate(
         { SensorAggregate() },
@@ -70,7 +56,28 @@ class StreamProcessor {
             "count" to agg.getCount()
           )
         )
+      }.also {
+        it.to("sensor.aggregates")
       }
-      .to("sensor.aggregates")
+  }
+
+  private fun deserializeJson(json: String): SensorReading? {
+    return try {
+      val debeziumEvent = mapper.readValue(json, DebeziumEvent::class.java)
+      if (debeziumEvent.payload.operation == "c") {
+        fromDebeziumEvent(debeziumEvent.payload)
+      } else {
+        null
+      }
+    } catch (e: Exception) {
+      logger.warn("Failed to parse message: ${e.message}")
+      null
+    }
+  }
+
+  companion object {
+    private val mapper = jacksonObjectMapper()
+    private val stringSerde = Serdes.String()
+    private val sensorReadingSerde = SensorReadingSerde()
   }
 }
