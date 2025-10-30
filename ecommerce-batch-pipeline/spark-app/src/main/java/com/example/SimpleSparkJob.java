@@ -6,7 +6,8 @@ import org.apache.spark.sql.SparkSession;
 
 public class SimpleSparkJob {
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws InterruptedException {
+    Thread.sleep(10_000);
     SparkSession spark = SparkSession.builder()
         .appName("Log Analyzer")
         .master("spark://spark-master:7077")
