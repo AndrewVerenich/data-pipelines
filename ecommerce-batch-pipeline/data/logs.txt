@@ -1,0 +1,8 @@
+INFO User logged in
+ERROR Failed to load profile
+INFO Page viewed
+ERROR Timeout occurred
+INFO Product added to cart
+INFO Checkout started
+ERROR Payment failed
+INFO Confirmation sent
