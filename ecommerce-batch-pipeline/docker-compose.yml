@@ -1,0 +1,143 @@
+version: '3.8'
+
+services:
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    hostname: namenode
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9870" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "9870:9870"
+      - "8020:8020"
+    environment:
+      - CLUSTER_NAME=mycluster
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+      - ./hadoop-config/core-site.xml:/hadoop/etc/hadoop/core-site.xml
+      - ./hadoop-config/hdfs-site.xml:/hadoop/etc/hadoop/hdfs-site.xml
+    networks:
+      - hadoop
+
+  datanode1:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode1
+    depends_on:
+      - namenode
+    environment:
+      - CLUSTER_NAME=mycluster
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+    volumes:
+      - hadoop_datanode1:/hadoop/dfs/data
+      - ./hadoop-config/core-site.xml:/hadoop/etc/hadoop/core-site.xml
+      - ./hadoop-config/hdfs-site.xml:/hadoop/etc/hadoop/hdfs-site.xml
+    networks:
+      - hadoop
+
+  datanode2:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode2
+    depends_on:
+      - namenode
+    environment:
+      - CLUSTER_NAME=mycluster
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+    volumes:
+      - hadoop_datanode2:/hadoop/dfs/data
+      - ./hadoop-config/core-site.xml:/hadoop/etc/hadoop/core-site.xml
+      - ./hadoop-config/hdfs-site.xml:/hadoop/etc/hadoop/hdfs-site.xml
+    networks:
+      - hadoop
+
+  hdfs-loader:
+    image: bde2020/hadoop-base:2.0.0-hadoop3.2.1-java8
+    container_name: hdfs-loader
+    depends_on:
+      namenode:
+        condition: service_healthy
+    environment:
+      - CLUSTER_NAME=mycluster
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+      - HADOOP_CONF_DIR=/hadoop/etc/hadoop
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+      - hadoop_datanode1:/hadoop/dfs/data
+      - hadoop_datanode2:/hadoop/dfs/data
+      - ./init:/init
+      - ./data:/data
+      - ./hadoop-config/core-site.xml:/hadoop/etc/hadoop/core-site.xml
+      - ./hadoop-config/hdfs-site.xml:/hadoop/etc/hadoop/hdfs-site.xml
+    entrypoint: [ "/bin/bash", "/init/load-hdfs.sh" ]
+    networks:
+      - hadoop
+    restart: "no"
+
+  spark-master:
+    image: apache/spark:3.5.0
+    container_name: spark-master
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+    volumes:
+      - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
+    networks:
+      - hadoop
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  spark-submit-runner:
+    image: apache/spark:3.5.0
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    volumes:
+      - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-jars/spark-app-1.0-all.jar
+      - ./spark-master/spark-submit.sh:/opt/spark-app/spark-submit.sh
+      - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
+    entrypoint: [ "/bin/bash", "-c", "sleep 5 && bash /opt/spark-app/spark-submit.sh" ]
+    networks:
+      - hadoop
+
+  spark-worker1:
+    image: apache/spark:3.5.0
+    container_name: spark-worker1
+    environment:
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2g
+    command: bash -c "/opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077"
+    volumes:
+      - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
+    depends_on:
+      - spark-master
+    networks:
+      - hadoop
+
+  spark-worker2:
+    image: apache/spark:3.5.0
+    container_name: spark-worker2
+    environment:
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2g
+    command: bash -c "/opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077"
+    volumes:
+      - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
+    depends_on:
+      - spark-master
+    networks:
+      - hadoop
+
+volumes:
+  hadoop_namenode:
+  hadoop_datanode1:
+  hadoop_datanode2:
+
+networks:
+  hadoop:
