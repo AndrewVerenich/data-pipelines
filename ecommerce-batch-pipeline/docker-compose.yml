@@ -93,18 +93,66 @@ services:
       timeout: 5s
       retries: 10
 
-  spark-submit-runner:
-    image: apache/spark:3.5.0
+#  spark-submit-runner:
+#    image: apache/spark:3.5.0
+#    depends_on:
+#      spark-master:
+#        condition: service_healthy
+#      hdfs-loader:
+#        condition: service_completed_successfully
+#    volumes:
+#      - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-jars/spark-app-1.0-all.jar
+#      - ./spark-master/spark-submit.sh:/opt/spark-app/spark-submit.sh
+#      - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
+#    entrypoint: [ "/bin/bash", "-c", "sleep 5 && bash /opt/spark-app/spark-submit.sh" ]
+#    networks:
+#      - hadoop
+
+  airflow-db:
+    image: postgres:15
+    container_name: airflow-db
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_pgdata:/var/lib/postgresql/data
+    networks:
+      - hadoop
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U airflow" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  airflow:
+    image: apache/airflow:2.8.1
+    container_name: airflow
     depends_on:
       spark-master:
         condition: service_healthy
       hdfs-loader:
         condition: service_completed_successfully
+      airflow-db:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     volumes:
+      - ./dags:/opt/airflow/dags
       - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-jars/spark-app-1.0-all.jar
-      - ./spark-master/spark-submit.sh:/opt/spark-app/spark-submit.sh
+      - ./spark-app/spark-submit.sh:/opt/spark-app/spark-submit.sh
       - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
-    entrypoint: [ "/bin/bash", "-c", "sleep 5 && bash /opt/spark-app/spark-submit.sh" ]
+    ports:
+      - "8081:8080"
+    command: bash -c "
+      airflow db init &&
+      airflow db migrate &&
+      airflow users create --username admin --firstname Air --lastname Flow --role Admin --email admin@example.com --password admin &&
+      airflow webserver &
+      airflow scheduler"
     networks:
       - hadoop
 
@@ -140,6 +188,7 @@ volumes:
   hadoop_namenode:
   hadoop_datanode1:
   hadoop_datanode2:
+  airflow_pgdata:
 
 networks:
   hadoop:
