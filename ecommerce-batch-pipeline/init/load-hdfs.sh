@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "Ждём запуск HDFS (таймаут 20 секунд)..."
-sleep 20
+echo "Ждём запуск HDFS..."
+sleep 30
 
 echo "Проверка конфигурации:"
 hdfs getconf -confKey fs.defaultFS
