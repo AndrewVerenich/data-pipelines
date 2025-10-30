@@ -125,8 +125,26 @@ services:
       timeout: 5s
       retries: 5
 
+  livy:
+    build:
+      context: ./livy
+      dockerfile: Dockerfile
+    container_name: livy
+    ports:
+      - "8998:8998"
+    environment:
+      - SPARK_HOME=/opt/spark
+    depends_on:
+      - spark-master
+    volumes:
+      - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-app/spark-app-1.0-all.jar
+    networks:
+      - hadoop
+
   airflow:
-    image: apache/airflow:2.8.1
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
     container_name: airflow
     depends_on:
       spark-master:
@@ -141,16 +159,24 @@ services:
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     volumes:
-      - ./dags:/opt/airflow/dags
-      - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-jars/spark-app-1.0-all.jar
-      - ./spark-app/spark-submit.sh:/opt/spark-app/spark-submit.sh
-      - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
+      - ./airflow/dags:/opt/airflow/dags
     ports:
       - "8081:8080"
     command: bash -c "
       airflow db init &&
       airflow db migrate &&
-      airflow users create --username admin --firstname Air --lastname Flow --role Admin --email admin@example.com --password admin &&
+      airflow connections delete livy_default || true &&
+      airflow connections add 'livy_default' \
+      --conn-type 'http' \
+      --conn-host 'http://livy' \
+      --conn-port '8998' &&
+      airflow users create \
+      --username admin \
+      --firstname Air \
+      --lastname Flow \
+      --role Admin \
+      --email admin@example.com \
+      --password admin &&
       airflow webserver &
       airflow scheduler"
     networks:
@@ -165,6 +191,7 @@ services:
     command: bash -c "/opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077"
     volumes:
       - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
+      - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-app/spark-app-1.0-all.jar
     depends_on:
       - spark-master
     networks:
@@ -179,6 +206,7 @@ services:
     command: bash -c "/opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077"
     volumes:
       - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
+      - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-app/spark-app-1.0-all.jar
     depends_on:
       - spark-master
     networks:
