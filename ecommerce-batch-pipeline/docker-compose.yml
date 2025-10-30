@@ -98,6 +98,8 @@ services:
     depends_on:
       spark-master:
         condition: service_healthy
+      hdfs-loader:
+        condition: service_completed_successfully
     volumes:
       - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-jars/spark-app-1.0-all.jar
       - ./spark-master/spark-submit.sh:/opt/spark-app/spark-submit.sh
