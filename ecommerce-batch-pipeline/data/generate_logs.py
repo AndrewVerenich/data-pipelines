@@ -11,7 +11,6 @@ pages = ["home", "search", "product", "checkout"]
 target_size = 1 * 1024 * 1024  # 256 MB
 
 with open("logs.txt", "w") as f:
-    f.write("[\n")
     first = True
     while f.tell() < target_size:
         log = {
@@ -27,4 +26,3 @@ with open("logs.txt", "w") as f:
             f.write(",\n")
         f.write(json.dumps(log))
         first = False
-    f.write("\n]\n")
