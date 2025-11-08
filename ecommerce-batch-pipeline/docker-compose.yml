@@ -85,6 +85,7 @@ services:
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
     volumes:
       - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
+      - ./jars/postgresql-42.6.2.jar:/opt/jars/postgresql-42.6.2.jar
     networks:
       - hadoop
     healthcheck:
@@ -138,6 +139,7 @@ services:
       - spark-master
     volumes:
       - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-app/spark-app-1.0-all.jar
+      - ./jars/postgresql-42.6.2.jar:/opt/jars/postgresql-42.6.2.jar
     networks:
       - hadoop
 
@@ -146,6 +148,7 @@ services:
       context: ./airflow
       dockerfile: Dockerfile
     container_name: airflow
+    restart: always
     depends_on:
       spark-master:
         condition: service_healthy
@@ -192,6 +195,7 @@ services:
     volumes:
       - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
       - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-app/spark-app-1.0-all.jar
+      - ./jars/postgresql-42.6.2.jar:/opt/jars/postgresql-42.6.2.jar
     depends_on:
       - spark-master
     networks:
@@ -207,8 +211,25 @@ services:
     volumes:
       - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
       - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-app/spark-app-1.0-all.jar
+      - ./jars/postgresql-42.6.2.jar:/opt/jars/postgresql-42.6.2.jar
     depends_on:
       - spark-master
+    networks:
+      - hadoop
+
+  postgres:
+    image: postgres:15
+    container_name: ecommerce-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: spark
+      POSTGRES_PASSWORD: sparkpass
+      POSTGRES_DB: ecommerce_logs
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - hadoop
 
@@ -217,6 +238,7 @@ volumes:
   hadoop_datanode1:
   hadoop_datanode2:
   airflow_pgdata:
+  pgdata:
 
 networks:
   hadoop:
