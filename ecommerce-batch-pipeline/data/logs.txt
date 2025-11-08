@@ -1,8 +1,12 @@
-INFO User logged in
-ERROR Failed to load profile
-INFO Page viewed
-ERROR Timeout occurred
-INFO Product added to cart
-INFO Checkout started
-ERROR Payment failed
-INFO Confirmation sent
+{"timestamp":"2025-11-03T21:00:01","level":"INFO","event":"User logged in","userId":"u001","sessionId":"s001","device":"mobile"}
+{"timestamp":"2025-11-03T21:00:05","level":"INFO","event":"Page viewed","userId":"u001","sessionId":"s001","page":"home"}
+{"timestamp":"2025-11-03T21:00:10","level":"INFO","event":"Product viewed","userId":"u001","sessionId":"s001","productId":"p123","category":"electronics"}
+{"timestamp":"2025-11-03T21:00:15","level":"INFO","event":"Product added to cart","userId":"u001","sessionId":"s001","productId":"p123"}
+{"timestamp":"2025-11-03T21:00:20","level":"INFO","event":"Checkout started","userId":"u001","sessionId":"s001"}
+{"timestamp":"2025-11-03T21:00:25","level":"ERROR","event":"Payment failed","userId":"u001","sessionId":"s001","errorType":"card_declined"}
+{"timestamp":"2025-11-03T21:01:00","level":"INFO","event":"User logged in","userId":"u002","sessionId":"s002","device":"desktop"}
+{"timestamp":"2025-11-03T21:01:10","level":"INFO","event":"Page viewed","userId":"u002","sessionId":"s002","page":"search"}
+{"timestamp":"2025-11-03T21:01:15","level":"INFO","event":"Product viewed","userId":"u002","sessionId":"s002","productId":"p456","category":"books"}
+{"timestamp":"2025-11-03T21:01:20","level":"INFO","event":"Product added to cart","userId":"u002","sessionId":"s002","productId":"p456"}
+{"timestamp":"2025-11-03T21:01:30","level":"INFO","event":"Checkout started","userId":"u002","sessionId":"s002"}
+{"timestamp":"2025-11-03T21:01:35","level":"INFO","event":"Payment completed","userId":"u002","sessionId":"s002","paymentMethod":"paypal"}
