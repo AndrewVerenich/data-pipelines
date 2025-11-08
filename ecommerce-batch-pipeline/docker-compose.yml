@@ -94,21 +94,6 @@ services:
       timeout: 5s
       retries: 10
 
-#  spark-submit-runner:
-#    image: apache/spark:3.5.0
-#    depends_on:
-#      spark-master:
-#        condition: service_healthy
-#      hdfs-loader:
-#        condition: service_completed_successfully
-#    volumes:
-#      - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-jars/spark-app-1.0-all.jar
-#      - ./spark-master/spark-submit.sh:/opt/spark-app/spark-submit.sh
-#      - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
-#    entrypoint: [ "/bin/bash", "-c", "sleep 5 && bash /opt/spark-app/spark-submit.sh" ]
-#    networks:
-#      - hadoop
-
   airflow-db:
     image: postgres:15
     container_name: airflow-db
@@ -233,12 +218,33 @@ services:
     networks:
       - hadoop
 
+  superset:
+    build:
+      context: ./superset
+      dockerfile: Dockerfile
+    depends_on:
+      - postgres
+    container_name: superset
+    environment:
+      SUPERSET_SECRET_KEY: "supersecret"
+      SUPERSET_LOAD_EXAMPLES: "no"
+      SUPERSET_CONFIG_PATH: /superset/superset_config.py
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./superset:/superset
+    command: >
+      bash -c "/superset/docker-entrypoint.sh"
+    networks:
+      - hadoop
+
 volumes:
   hadoop_namenode:
   hadoop_datanode1:
   hadoop_datanode2:
   airflow_pgdata:
   pgdata:
+  superset_home:
 
 networks:
   hadoop:
