@@ -46,7 +46,10 @@ with DAG(
                 "spark.master": "spark://spark-master:7077",
                 "spark.executor.memory": "2g",
                 "spark.executor.cores": "2",
-                "spark.livy.job.timeout": "300s"
+                "spark.livy.job.timeout": "300s",
+                "spark.jars": "local:/opt/jars/postgresql-42.6.2.jar",
+                "spark.driver.extraClassPath": "/opt/jars/postgresql-42.6.2.jar",
+                "spark.executor.extraClassPath": "/opt/jars/postgresql-42.6.2.jar"
             }
         }),
         response_check=lambda response: response.status_code == 201,
