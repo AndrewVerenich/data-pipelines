@@ -81,6 +81,79 @@ CHART2_RESPONSE=$(curl -s -X POST http://localhost:8088/api/v1/chart/ \
 CHART2_ID=$(echo "$CHART2_RESPONSE" | grep -o '"id":[0-9]*' | head -n1 | sed 's/\"id\"://')
 echo "CHART2_ID: $CHART2_ID"
 
+CHART3_RESPONSE=$(curl -s -X POST http://localhost:8088/api/v1/chart/ \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"slice_name\": \"Errors Over Time\",
+    \"viz_type\": \"line\",
+    \"datasource_id\": $DATASET_ID,
+    \"datasource_type\": \"table\",
+    \"description\": \"Error events trend by minute\",
+    \"params\": \"{
+      \\\"metrics\\\": [\\\"count\\\"],
+      \\\"groupby\\\": [\\\"minute\\\"],
+      \\\"adhoc_filters\\\": [
+        {
+          \\\"expressionType\\\": \\\"SIMPLE\\\",
+          \\\"subject\\\": \\\"level\\\",
+          \\\"operator\\\": \\\"==\\\",
+          \\\"comparator\\\": \\\"ERROR\\\",
+          \\\"clause\\\": \\\"WHERE\\\",
+          \\\"isExtra\\\": false,
+          \\\"isNew\\\": false,
+          \\\"filterOptionName\\\": \\\"filter_level_ERROR\\\"
+        }
+      ],
+      \\\"row_limit\\\": 100,
+      \\\"time_range\\\": \\\"No filter\\\"
+    }\"
+  }")
+CHART3_ID=$(echo "$CHART3_RESPONSE" | grep -o '"id":[0-9]*' | head -n1 | sed 's/\"id\"://')
+echo "CHART3_ID: $CHART3_ID"
+
+CHART4_RESPONSE=$(curl -s -X POST http://localhost:8088/api/v1/chart/ \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"slice_name\": \"Errors by Type\",
+    \"viz_type\": \"bar\",
+    \"datasource_id\": $DATASET_ID,
+    \"datasource_type\": \"table\",
+    \"description\": \"Distribution of error types\",
+    \"params\": \"{\\\"metrics\\\": [\\\"count\\\"], \\\"groupby\\\": [\\\"errortype\\\"], \\\"adhoc_filters\\\": [], \\\"row_limit\\\": 100, \\\"time_range\\\": \\\"No filter\\\"}\"
+  }")
+CHART4_ID=$(echo "$CHART4_RESPONSE" | grep -o '"id":[0-9]*' | head -n1 | sed 's/\"id\"://')
+echo "CHART4_ID: $CHART4_ID"
+
+CHART5_RESPONSE=$(curl -s -X POST http://localhost:8088/api/v1/chart/ \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"slice_name\": \"Products by Category\",
+    \"viz_type\": \"treemap\",
+    \"datasource_id\": $DATASET_ID,
+    \"datasource_type\": \"table\",
+    \"description\": \"Product views grouped by category\",
+    \"params\": \"{\\\"metrics\\\": [\\\"count\\\"], \\\"groupby\\\": [\\\"category\\\"], \\\"adhoc_filters\\\": [], \\\"row_limit\\\": 100, \\\"time_range\\\": \\\"No filter\\\"}\"
+  }")
+CHART5_ID=$(echo "$CHART5_RESPONSE" | grep -o '"id":[0-9]*' | head -n1 | sed 's/\"id\"://')
+echo "CHART5_ID: $CHART5_ID"
+
+CHART6_RESPONSE=$(curl -s -X POST http://localhost:8088/api/v1/chart/ \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"slice_name\": \"Payments by Method\",
+    \"viz_type\": \"bar\",
+    \"datasource_id\": $DATASET_ID,
+    \"datasource_type\": \"table\",
+    \"description\": \"Distribution of payment methods\",
+    \"params\": \"{\\\"metrics\\\": [\\\"count\\\"], \\\"groupby\\\": [\\\"paymentmethod\\\"], \\\"adhoc_filters\\\": [], \\\"row_limit\\\": 100, \\\"time_range\\\": \\\"No filter\\\"}\"
+  }")
+CHART6_ID=$(echo "$CHART6_RESPONSE" | grep -o '"id":[0-9]*' | head -n1 | sed 's/\"id\"://')
+echo "CHART6_ID: $CHART6_ID"
+
 # Dashboard
 DASHBOARD_RESPONSE=$(curl -s -X POST http://localhost:8088/api/v1/dashboard/ \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
