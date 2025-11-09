@@ -32,7 +32,7 @@
 
 ---
 
-### 🛒 [Ecommerce Big Data Analytics Pipeline](./ecommerce-pipeline/README.md)
+### 🛒 [Ecommerce Big Data Analytics Pipeline](./ecommerce-batch-pipeline/README.md)
 
 **Стек:** Hadoop • Spark • Livy • Airflow • PostgreSQL • Superset
 
