@@ -1,0 +1,163 @@
+{
+  "id": null,
+  "uid": "analytics-overview",
+  "title": "Analytics Overview",
+  "tags": ["analytics"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Events per Type",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(windowStart/1000) AS time, key, value FROM events_per_type ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Page Views",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(windowStart/1000) AS time, key, value FROM page_views ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Unique Users per Page",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(windowStart/1000) AS time, key, value FROM unique_users_per_page ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Conversion Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(windowStart/1000) AS time, value FROM conversion_rate ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Session Duration",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(sessionStart/1000) AS time, durationMs AS value FROM session_stats ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Events per Session",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "targets": [
+        {
+          "refId": "B",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(sessionStart/1000) AS time, events AS value FROM session_stats ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Funnel Conversion",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(windowStart/1000) AS time, viewed, clicked, purchased FROM funnel_stats ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Completed Funnels",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "targets": [
+        {
+          "refId": "B",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(windowStart/1000) AS time, completedVC, completedCP, completedVCP FROM funnel_stats ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" }
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "User Activity Heatmap",
+      "type": "heatmap",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(windowStart/1000) AS time, key, value FROM activity_heatmap ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Retention",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(windowStart/1000) AS time, returningUsers, newUsers, totalUsers FROM retention ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" }
+        }
+      ]
+    }
+  ],
+  "time": { "from": "now-1h", "to": "now" }
+}
