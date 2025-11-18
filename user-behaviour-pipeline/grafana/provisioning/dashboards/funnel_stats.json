@@ -1,0 +1,39 @@
+{
+  "id": null,
+  "title": "Funnel Stats",
+  "schemaVersion": 37,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Funnel Conversion",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(windowStart/1000) AS time, viewed, clicked, purchased FROM funnel_stats ORDER BY time"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Completed Funnels",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+      "targets": [
+        {
+          "refId": "B",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(windowStart/1000) AS time, completedVC, completedCP, completedVCP FROM funnel_stats ORDER BY time"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+    }
+  ],
+  "time": { "from": "now-1h", "to": "now" }
+}
