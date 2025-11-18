@@ -63,8 +63,12 @@ object UserBehaviourAnalyticsJob {
       .map { KV(it.event, 1) }
       .keyBy { it.key }
       .window(TumblingEventTimeWindows.of(Time.minutes(1)))
-      .reduce({ a, b -> KV(a.key, a.value + b.value) })
-      .map { toJson(Metric("events_per_type", it.key, 0, 0, it.value.toDouble())) }
+      .apply { key, window, input, out ->
+        val total = input.sumOf { it.value }
+        val metric = Metric("events_per_type", key, window.start, window.end, total.toDouble())
+        out.collect(toJson(metric))
+      }
+      .returns(Types.STRING)
       .sinkTo(sink("events_per_type"))
 
     // 2) Page views (top pages, 1-minute tumbling)
@@ -72,8 +76,12 @@ object UserBehaviourAnalyticsJob {
       .map { KV(it.page, 1) }
       .keyBy { it.key }
       .window(TumblingEventTimeWindows.of(Time.minutes(1)))
-      .reduce({ a, b -> KV(a.key, a.value + b.value) })
-      .map { toJson(Metric("page_views", it.key, 0, 0, it.value.toDouble())) }
+      .apply { key, window, input, out ->
+        val total = input.sumOf { it.value }
+        val metric = Metric("page_views", key, window.start, window.end, total.toDouble())
+        out.collect(toJson(metric))
+      }
+      .returns(Types.STRING)
       .sinkTo(sink("page_views"))
 
     // 3) Unique users per page (1-minute tumbling)
@@ -195,10 +203,20 @@ object UserBehaviourAnalyticsJob {
       .map { HeatBucket(hour = ((it.timestamp / 1000 / 3600) % 24).toInt(), count = 1) }
       .keyBy { it.hour }
       .window(TumblingEventTimeWindows.of(Time.minutes(1)))
-      .reduce { a, b -> HeatBucket(a.hour, a.count + b.count) }
-      .map { toJson(Metric("activity_heatmap", it.hour.toString(), 0, 0, it.count.toDouble())) }
+      .apply { hour, window, input, out ->
+        val total = input.sumOf { it.count }
+        val metric = Metric(
+          metric = "activity_heatmap",
+          key = hour.toString(),
+          windowStart = window.start,
+          windowEnd = window.end,
+          value = total.toDouble()
+        )
+        out.collect(toJson(metric))
+      }
       .returns(Types.STRING)
       .sinkTo(sink("activity_heatmap"))
+
 
     // 8) Retention (returning vs new users in 1-hour tumbling)
     // Примерно: если у пользователя в окне более одной сессии или событие ранее уже было — считаем returning.
