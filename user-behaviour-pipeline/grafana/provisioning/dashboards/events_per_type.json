@@ -1,0 +1,24 @@
+{
+  "id": null,
+  "title": "Events per Type",
+  "schemaVersion": 37,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Events per Type",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(windowStart/1000) AS time, key, value FROM events_per_type ORDER BY time"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+    }
+  ],
+  "time": { "from": "now-1h", "to": "now" }
+}

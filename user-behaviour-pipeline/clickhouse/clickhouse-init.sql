@@ -1,7 +1,3 @@
-CREATE DATABASE IF NOT EXISTS analytics;
-
-USE analytics;
-
 -- 1) Events per type
 CREATE TABLE kafka_events_per_type (
                                        metric String,
