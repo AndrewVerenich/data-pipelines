@@ -45,3 +45,20 @@
 - ✅ REST API для Spark через Apache Livy
 - ✅ Хранение результатов в PostgreSQL
 - ✅ BI‑дашборды и визуализация в Apache Superset
+
+---
+
+### ⚡ [Flink User Behaviour Analytics Pipeline](./user-behaviour-pipeline/README.md)
+
+**Стек:** Apache Kafka • Apache Flink • ClickHouse • Grafana • Spring Boot WebSocket Gateway
+
+Комплексный пайплайн для real-time обработки пользовательских событий с визуализацией метрик.
+
+**Ключевые возможности:**
+- ✅ Потоковая обработка событий в Apache Flink
+- ✅ Хранение агрегированных метрик в ClickHouse
+- ✅ Визуализация данных в Grafana
+- ✅ Kafka как брокер сообщений для событий
+- ✅ Эмуляция пользовательского поведения через WebSocket Gateway
+- ✅ Docker Compose для оркестрации всех компонентов
+
