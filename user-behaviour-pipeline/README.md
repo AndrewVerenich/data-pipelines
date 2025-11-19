@@ -37,6 +37,7 @@ dashboards)
 git clone <repository-url>
 cd flink-pipeline
 ./gradlew clean build
+```
 
 2. Запустите все сервисы:
 ```bash
