@@ -58,7 +58,7 @@ services:
     build: ./user-behaviour-emulator
     environment:
       - WS_URL=ws://gateway-websocket:8080/ws/events
-      - SEND_INTERVAL_MS=1000
+      - SEND_INTERVAL_MS=200
     depends_on:
       gateway-websocket:
         condition: service_healthy
@@ -97,6 +97,8 @@ services:
     depends_on:
       jobmanager:
         condition: service_started
+      gateway-websocket:
+        condition: service_healthy
     volumes:
       - ./flink-job/build/libs:/jars
     command: >
