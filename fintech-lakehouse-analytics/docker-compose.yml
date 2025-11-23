@@ -20,6 +20,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      my-network:
 
   debezium:
     image: debezium/connect:2.5
@@ -48,6 +50,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      my-network:
 
   debezium-init:
     image: curlimages/curl:8.5.0
@@ -57,6 +61,8 @@ services:
     volumes:
       - ./debezium/init-debezium.sh:/init-debezium.sh
     entrypoint: [ "sh", "/init-debezium.sh" ]
+    networks:
+      my-network:
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -68,6 +74,8 @@ services:
       test: [ "CMD", "nc", "-z", "localhost", "2181" ]
       interval: 10s
       timeout: 5s
+    networks:
+      my-network:
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
@@ -89,6 +97,8 @@ services:
       timeout: 10s
       retries: 10
       start_period: 60s
+    networks:
+      my-network:
 
   kafka-ui:
     image: redpandadata/console:v3.3.1
@@ -98,6 +108,8 @@ services:
     ports: [ "8088:8080" ]
     environment:
       - KAFKA_BROKERS=kafka:9092
+    networks:
+      my-network:
 
   clickhouse:
     image: clickhouse/clickhouse-server:23.8
@@ -108,12 +120,14 @@ services:
       - "8123:8123"
       - "9000:9000"
     volumes:
-#      - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-data:/var/lib/clickhouse
       - ./clickhouse/clickhouse-init.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
       CLICKHOUSE_USER: admin
       CLICKHOUSE_PASSWORD: admin123
       CLICKHOUSE_DB: default
+    networks:
+      my-network:
 
   dbt:
     build:
@@ -121,16 +135,65 @@ services:
     container_name: dbt
     depends_on:
       clickhouse:
-        condition: service_healthy
-    volumes:
-      - ./dbt/dbt_project.yml:/usr/app/dbt_project.yml
-      - ./dbt/profiles.yml:/root/.dbt/profiles.yml
-      - ./dbt/models:/usr/app/models
+        condition: service_started
     working_dir: /usr/app
     entrypoint: [ "dbt" ]
     command: [ "run" ]
+    networks:
+      my-network:
+
+  airflow:
+    user: root
+    image: apache/airflow:2.8.1
+    container_name: airflow
+    restart: always
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp:/tmp
+    ports:
+      - "8081:8080"
+    command: bash -c "
+      airflow db init &&
+      airflow db migrate &&
+      airflow users create \
+      --username admin \
+      --firstname Air \
+      --lastname Flow \
+      --role Admin \
+      --email admin@example.com \
+      --password admin &&
+      airflow webserver &
+      airflow scheduler"
+    networks:
+      my-network:
+
+  airflow-db:
+    image: postgres:15
+    container_name: airflow-db
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U airflow" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      my-network:
 
 
 volumes:
   pgdata:
   clickhouse-data:
+networks:
+  my-network:
