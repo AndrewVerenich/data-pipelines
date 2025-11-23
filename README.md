@@ -62,3 +62,17 @@
 - ✅ Эмуляция пользовательского поведения через WebSocket Gateway
 - ✅ Docker Compose для оркестрации всех компонентов
 
+### 🏦 [Fintech ELT Data Lakehouse Pipeline](./fintech-lakehouse-analytics/README.md)
+
+**Стек:** Postgres • Debezium • Apache Kafka • ClickHouse • dbt • Apache Airflow
+
+Комплексный пайплайн для построения **Data Lakehouse** архитектуры в финансовой сфере с использованием **ELT‑подхода**: данные из Postgres через CDC попадают в Kafka, загружаются в ClickHouse, а затем трансформируются внутри хранилища с помощью dbt под управлением Airflow.
+
+**Ключевые возможности:**
+- ✅ Change Data Capture (CDC) из Postgres через Debezium
+- ✅ Потоковая доставка событий в Apache Kafka
+- ✅ Хранение сырых и преобразованных данных в ClickHouse (Lakehouse Storage)
+- ✅ ELT‑трансформации и моделирование данных через dbt
+- ✅ Оркестрация процессов и DAG‑ов в Apache Airflow
+- ✅ Мониторинг Kafka топиков через Kafka UI
+- ✅ Docker Compose для оркестрации всех компонентов
