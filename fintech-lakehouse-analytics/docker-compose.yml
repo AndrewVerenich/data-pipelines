@@ -91,7 +91,7 @@ services:
       start_period: 60s
 
   kafka-ui:
-    image: redpandadata/console:latest
+    image: redpandadata/console:v3.3.1
     depends_on:
       kafka:
         condition: service_healthy
@@ -114,6 +114,22 @@ services:
       CLICKHOUSE_USER: admin
       CLICKHOUSE_PASSWORD: admin123
       CLICKHOUSE_DB: default
+
+  dbt:
+    build:
+      context: ./dbt
+    container_name: dbt
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    volumes:
+      - ./dbt/dbt_project.yml:/usr/app/dbt_project.yml
+      - ./dbt/profiles.yml:/root/.dbt/profiles.yml
+      - ./dbt/models:/usr/app/models
+    working_dir: /usr/app
+    entrypoint: [ "dbt" ]
+    command: [ "run" ]
+
 
 volumes:
   pgdata:

@@ -1,4 +1,4 @@
-FROM apache/superset:latest
+FROM apache/superset:GHA-dev-19587880371
 
 USER root
 
