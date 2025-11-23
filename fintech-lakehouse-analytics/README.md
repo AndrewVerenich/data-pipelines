@@ -112,26 +112,3 @@ docker-compose down -v
 DAG:
   ![**DAG**](docs/screenshot.jpg)
 ---
-
-## 📐 Архитектурная схема (ELT Lakehouse)
-
-```text
-        ┌───────────┐
-        │ Postgres  │
-        └─────┬─────┘
-              │  CDC (Debezium)
-              ▼
-        ┌───────────┐
-        │   Kafka   │
-        └─────┬─────┘
-              │  Stream
-              ▼
-        ┌───────────┐
-        │ClickHouse │  ← Lakehouse Storage
-        └─────┬─────┘
-              │  Transform (dbt)
-              ▼
-        ┌───────────┐
-        │  Airflow  │  ← Orchestration
-        └───────────┘
-
