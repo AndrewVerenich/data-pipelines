@@ -1,8 +1,15 @@
 # ⚡ Flink User Behaviour Analytics Pipeline
 
 **Схема:**  
-User Behaviour Emulator → Gateway WebSocket → Kafka → Flink (stream processing) → Kafka → ClickHouse → Grafana (BI 
-dashboards)
+```mermaid
+flowchart LR
+    A[User Behaviour Emulator<br/>Kotlin Spring Boot app] --> B[Gateway WebSocket]
+    B --> C[(Apache Kafka)]
+    C --> D[Apache Flink<br/>Stream Processing]
+    D --> C
+    C --> E[(ClickHouse)]
+    E --> F[Grafana<br/>BI Dashboards]
+```
 
 Комплексный пайплайн для потоковой обработки пользовательских событий с визуализацией метрик в реальном времени.
 

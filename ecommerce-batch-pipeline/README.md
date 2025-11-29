@@ -1,8 +1,15 @@
 # 🛒 Ecommerce Big Data Analytics Pipeline
 
-**Схема:**  
-Log Generator → HDFS → Spark (batch processing) → PostgreSQL → Superset (BI dashboards)
-+Airflow для оркестрации ETL → Livy для REST‑интеграции со Spark
+**Схема:** 
+```mermaid
+flowchart LR
+  A[Log Generator] --> B[(HDFS)]
+  B --> C[Apache Spark<br/>Batch Processing]
+  C --> D[(PostgreSQL)]
+  D --> E[Apache Superset<br/>BI Dashboards]
+  F[Apache Airflow<br/>ETL Orchestration] --> G
+  G[Apache Livy<br/>REST API for Spark] --> C
+```
 
 Комплексный пайплайн для обработки и анализа e‑commerce логов с визуализацией метрик.
 
