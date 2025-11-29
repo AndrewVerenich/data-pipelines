@@ -1,8 +1,16 @@
 # IoT Real-Time Analytics Pipeline
 
-**Схема:** Iot data generator (Kotlin Spring Boot app) -> PostgreSQL -> Debezium -> Apache Kafka -> Kafka Streams (Kotlin Spring Boot app) 
--> Apache Kafka ->
-ClickHouse -> Grafana
+**Схема:**
+```mermaid
+flowchart LR
+    A[Iot Data Generator<br/>Kotlin Spring Boot app] --> B[(PostgreSQL)]
+    B --> C[Debezium CDC]
+    C --> D[Apache Kafka]
+    D --> E[Kafka Streams<br/>Kotlin Spring Boot app]
+    E --> D
+    D --> F[(ClickHouse)]
+    F --> G[Grafana<br/>Dashboards]
+```
 
 Комплексный пайплайн для real-time обработки IoT данных с визуализацией метрик.
 

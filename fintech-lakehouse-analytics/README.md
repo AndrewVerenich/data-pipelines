@@ -1,8 +1,14 @@
 # 🏦 Fintech ELT Data Lakehouse Pipeline
 
 **Схема:**  
-Postgres (OLTP) → Debezium (CDC) → Kafka → ClickHouse (Lakehouse Storage) → dbt (Transformations) → Airflow (Orchestration)
-
+```mermaid
+flowchart LR
+    A[(Postgres<br/>OLTP)] --> B[Debezium<br/>CDC]
+    B --> C[(Apache Kafka)]
+    C --> D[(ClickHouse<br/>Lakehouse Storage)]
+    E[dbt<br/>Transformations] --> D
+    F[Apache Airflow<br/>Orchestration] --> E
+```
 Комплексный пайплайн для построения **Data Lakehouse** архитектуры в финансовой сфере с использованием **ELT‑подхода**: данные сначала загружаются в хранилище (Load), затем трансформируются внутри ClickHouse (Transform).
 
 ---
