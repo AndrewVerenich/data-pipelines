@@ -1,0 +1,22 @@
+spring:
+  kafka:
+    bootstrap-servers: kafka:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+app:
+  generator:
+    website-interval-ms: 500
+    ad-interval-ms: 1000
+    backend-interval-ms: 2000
+    user-id-range: 100
+    product-id-range: 50
+    campaign-id-range: 20
+
+logging:
+  level:
+    com.example.marketing: INFO
+    org.springframework.kafka: WARN
