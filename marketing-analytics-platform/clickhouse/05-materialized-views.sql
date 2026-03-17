@@ -29,17 +29,18 @@ GROUP BY event_date;
 -- fact_events -> campaign_performance_daily
 CREATE MATERIALIZED VIEW IF NOT EXISTS marketing.mv_campaign_performance TO marketing.campaign_performance_daily AS
 SELECT
-    event_date,
-    assumeNotNull(campaign_id)            AS campaign_id,
-    channel                               AS platform,
-    countIf(event_type = 'impression')    AS impressions,
-    countIf(event_type = 'click')         AS clicks,
-    countIf(event_type = 'conversion')    AS conversions,
-    sum(cost)                             AS total_cost,
-    sum(revenue)                          AS total_revenue
-FROM marketing.fact_events
-WHERE event_source = 'ad_platform' AND campaign_id IS NOT NULL
-GROUP BY event_date, campaign_id, channel;
+    fe.event_date,
+    assumeNotNull(fe.campaign_id)            AS campaign_id,
+    assumeNotNull(any(fe.campaign_sk))        AS campaign_sk,
+    fe.channel                                AS platform,
+    countIf(fe.event_type = 'impression')    AS impressions,
+    countIf(fe.event_type = 'click')          AS clicks,
+    countIf(fe.event_type = 'conversion')     AS conversions,
+    sum(fe.cost)                             AS total_cost,
+    sum(fe.revenue)                          AS total_revenue
+FROM marketing.fact_events AS fe
+WHERE fe.event_source = 'ad_platform' AND fe.campaign_id IS NOT NULL AND fe.campaign_sk IS NOT NULL
+GROUP BY fe.event_date, fe.campaign_id, fe.channel;
 
 -- fact_events -> user_ltv
 CREATE MATERIALIZED VIEW IF NOT EXISTS marketing.mv_user_ltv TO marketing.user_ltv AS

@@ -74,7 +74,7 @@ Data Warehouse на **ClickHouse** с real-time ingestion из **Kafka**, ген
 **Ключевые возможности:**
 - ✅ Многослойная DWH-архитектура: Raw → Dimension → Fact → Aggregated
 - ✅ Real-time ingestion из Kafka через Kafka Engine + Materialized Views
-- ✅ Star schema с dimension tables на ReplacingMergeTree
+- ✅ Star schema с SCD Type 2 dimension tables на MergeTree с surrogate keys
 - ✅ Инкрементальная агрегация (SummingMergeTree, AggregatingMergeTree)
 - ✅ Маркетинговые метрики: DAU, MAU, Conversion Rate, CAC, ROAS, ARPU, LTV
 - ✅ Оптимизация: Projections, Data Skipping Indexes, LowCardinality, TTL
@@ -100,11 +100,11 @@ flowchart TB
   DU["<b>dim_users</b><br>SCD Type 2 · MergeTree<br>─────────────────<br>user_sk · UInt64 SK<br>user_id · UInt64 NK<br>name · String<br>email · String<br>signup_date · Date<br>acquisition_channel · LC<br>segment · LC<br>valid_from · DateTime<br>valid_to · DateTime<br>is_current · UInt8"]
   DP["<b>dim_products</b><br>SCD Type 2 · MergeTree<br>─────────────────<br>product_sk · UInt64 SK<br>product_id · UInt32 NK<br>name · String<br>category · LC<br>price · Decimal<br>valid_from · DateTime<br>valid_to · DateTime<br>is_current · UInt8"]
   DC["<b>dim_campaigns</b><br>SCD Type 2 · MergeTree<br>─────────────────<br>campaign_sk · UInt64 SK<br>campaign_id · UInt32 NK<br>name · String<br>platform · LC<br>budget / spent · Decimal<br>start_date / end_date · Date<br>valid_from · DateTime<br>valid_to · DateTime<br>is_current · UInt8"]
-  FE["<b>fact_events</b><br>MergeTree<br>─────────────────<br>event_id · String<br>user_id · UInt64 FK<br>product_id · UInt32 FK<br>campaign_id · UInt32 FK<br>event_type · LC<br>event_source · LC<br>revenue · Decimal<br>cost · Decimal<br>channel · LC<br>page_url · String<br>session_id · String<br>event_timestamp · DateTime64<br>event_date · Date"]
+  FE["<b>fact_events</b><br>MergeTree<br>─────────────────<br>event_id · String<br>user_id · UInt64 NK<br>user_sk · UInt64 SK<br>product_id · Nullable(UInt32) NK<br>product_sk · Nullable(UInt64) SK<br>campaign_id · Nullable(UInt32) NK<br>campaign_sk · Nullable(UInt64) SK<br>event_type · LC<br>event_source · LC<br>revenue · Decimal<br>cost · Decimal<br>channel · LC<br>page_url · String<br>session_id · String<br>event_timestamp · DateTime64<br>event_date · Date"]
 
-  DU -->|"user_id"| FE
-  DP -->|"product_id"| FE
-  DC -->|"campaign_id"| FE
+  DU -->|"user_sk"| FE
+  DP -->|"product_sk"| FE
+  DC -->|"campaign_sk"| FE
 ```
 
 *SK = Surrogate Key, NK = Natural Key, FK = Foreign Key, LC = LowCardinality(String)*
@@ -174,6 +174,7 @@ marketing-analytics-platform/
 │   ├── 03-fact-tables.sql         # fact_events + unification MVs
 │   ├── 04-aggregated-tables.sql   # SummingMergeTree + AggregatingMergeTree tables
 │   ├── 05-materialized-views.sql  # Incremental aggregation MVs
+│   ├── 05a-views-for-superset.sql  # Views: conversion_funnel_daily_merged, user_ltv_final (for BI)
 │   ├── 06-projections-indexes.sql # Projections + data skipping indexes
 │   ├── 07-marketing-metrics.sql   # Готовые аналитические запросы
 │   ├── 08-backfill-website-history.sql
@@ -204,8 +205,8 @@ marketing-analytics-platform/
 | Слой | Таблицы | Engine | Назначение |
 |------|---------|--------|-----------|
 | Raw | raw_website_events, raw_ad_events, raw_backend_events | MergeTree | Неизменяемый лог событий из Kafka |
-| Dimension | dim_users, dim_products, dim_campaigns | MergeTree (SCD Type 2) | Surrogate key + valid_from/valid_to, полная история изменений |
-| Fact | fact_events | MergeTree | Единое хранилище событий из всех источников |
+| Dimension | dim_users, dim_products, dim_campaigns | MergeTree (SCD Type 2) | Surrogate key + valid_from/valid_to + is_current, полная история изменений |
+| Fact | fact_events | MergeTree | Единое хранилище событий из всех источников; хранит и natural keys, и surrogate keys для джойна с dimension |
 | Aggregated | daily_user_activity, campaign_performance_daily | SummingMergeTree | Аддитивные предагрегации (counts, sums) |
 | Aggregated | conversion_funnel_daily, user_ltv | AggregatingMergeTree | Неаддитивные агрегации (HyperLogLog, min/max) |
 
@@ -213,7 +214,7 @@ marketing-analytics-platform/
 
 **MergeTree** — движок по умолчанию для raw и fact таблиц. Хранит каждую строку как есть. Поддерживает partitioning, primary key indexing, TTL, projections и data skipping indexes.
 
-**MergeTree (SCD Type 2 Dimensions)** — для dimension tables с полной историей изменений. Каждая версия записи имеет surrogate key, `valid_from` / `valid_to` и флаг `is_current`. Fact table хранит natural key, а при JOIN используется условие `valid_from <= event_timestamp AND event_timestamp < valid_to` для получения атрибутов на момент события, или `is_current = 1` для текущего состояния.
+**MergeTree (SCD Type 2 Dimensions)** — для dimension tables с полной историей изменений. Каждая версия записи имеет surrogate key, `valid_from` / `valid_to` и флаг `is_current`. Materialized View при загрузке из raw‑слоя выполняет point-in-time JOIN по `natural_key + valid_from/valid_to`, разрешает surrogate key и записывает в fact одновременно natural key и surrogate key. Дальнейшие аналитические запросы (CAC, ROAS и др.) джойнятся от fact к dimension в основном по surrogate key, а исторические выборки по самой dimension — по `natural_key + valid_from/valid_to` или `is_current = 1`.
 
 **SummingMergeTree((col1, col2, ...))** — для аддитивных предагрегаций (counts, sums, totals). При background merge строки с одинаковым ORDER BY ключом схлопываются: указанные числовые колонки суммируются. Идеально для `events_count`, `total_revenue`, `impressions`, `clicks`.
 

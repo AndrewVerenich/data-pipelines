@@ -18,6 +18,7 @@ ORDER BY (event_date, event_source, event_type);
 CREATE TABLE IF NOT EXISTS marketing.campaign_performance_daily (
     event_date     Date,
     campaign_id    UInt32,
+    campaign_sk    Int64,
     platform       LowCardinality(String),
     impressions    UInt64,
     clicks         UInt64,
