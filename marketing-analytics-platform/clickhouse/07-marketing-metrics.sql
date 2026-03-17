@@ -37,7 +37,7 @@ FROM conversion_funnel_daily
 GROUP BY event_date
 ORDER BY event_date;
 
--- CAC (Customer Acquisition Cost) per platform
+-- CAC (Customer Acquisition Cost) per platform (join by surrogate key)
 SELECT
     dc.platform,
     sum(cp.total_cost) AS total_spend,
@@ -45,16 +45,14 @@ SELECT
     if(uniqExact(fe.user_id) > 0,
        sum(cp.total_cost) / uniqExact(fe.user_id), 0) AS cac
 FROM campaign_performance_daily cp
-INNER JOIN dim_campaigns dc
-    ON cp.campaign_id = dc.campaign_id
-    AND dc.is_current = 1
+INNER JOIN dim_campaigns dc ON cp.campaign_sk = dc.campaign_sk
 INNER JOIN fact_events fe
-    ON fe.campaign_id = cp.campaign_id
+    ON fe.campaign_sk = cp.campaign_sk
     AND fe.event_type = 'registration'
 GROUP BY dc.platform
 ORDER BY cac;
 
--- ROAS (Return on Ad Spend) per campaign
+-- ROAS (Return on Ad Spend) per campaign (join by surrogate key)
 SELECT
     cp.campaign_id,
     dc.name AS campaign_name,
@@ -64,9 +62,7 @@ SELECT
     if(sum(cp.total_cost) > 0,
        sum(cp.total_revenue) / sum(cp.total_cost), 0) AS roas
 FROM campaign_performance_daily cp
-INNER JOIN dim_campaigns dc
-    ON cp.campaign_id = dc.campaign_id
-    AND dc.is_current = 1
+INNER JOIN dim_campaigns dc ON cp.campaign_sk = dc.campaign_sk
 GROUP BY cp.campaign_id, dc.name, dc.platform
 ORDER BY roas DESC;
 
@@ -116,7 +112,7 @@ FROM user_ltv AS u FINAL
 ORDER BY u.total_revenue DESC
 LIMIT 100;
 
--- LTV joined with user dimensions (SCD Type 2: current version)
+-- LTV joined with user dimensions (current version; user_ltv has no user_sk, so join by natural key + is_current)
 SELECT
     du.user_id,
     du.user_sk,

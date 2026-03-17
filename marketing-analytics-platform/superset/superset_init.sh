@@ -321,9 +321,11 @@ token = login()
 database_id = ensure_database(token)
 
 daily_user_activity_id = ensure_dataset(token, database_id, "marketing", "daily_user_activity")
+daily_active_users_by_source_id = ensure_dataset(token, database_id, "marketing", "daily_active_users_by_source")
 campaign_performance_id = ensure_dataset(token, database_id, "marketing", "campaign_performance_daily")
-conversion_funnel_id = ensure_dataset(token, database_id, "marketing", "conversion_funnel_daily")
-user_ltv_id = ensure_dataset(token, database_id, "marketing", "user_ltv")
+# Только представления: базовые таблицы содержат AggregateFunction(uniq) → JDBC отдаёт Bitmap, клиент падает
+conversion_funnel_merged_id = ensure_dataset(token, database_id, "marketing", "conversion_funnel_daily_merged")
+user_ltv_final_id = ensure_dataset(token, database_id, "marketing", "user_ltv_final")
 
 revenue_chart_id = build_timeseries_chart(
     "Daily Revenue by Source",
@@ -334,20 +336,20 @@ revenue_chart_id = build_timeseries_chart(
 )
 active_users_chart_id = build_timeseries_chart(
     "Daily Active Users by Source",
-    daily_user_activity_id,
+    daily_active_users_by_source_id,
     "event_date",
-    metric("sum(unique_users)", "sum_unique_users"),
+    metric("unique_users", "unique_users"),
     ["event_source"],
 )
 funnel_chart_id = build_multi_metric_timeseries_chart(
     "Conversion Funnel by Stage",
-    conversion_funnel_id,
+    conversion_funnel_merged_id,
     "event_date",
     [
-        metric("uniqMerge(page_viewers)", "page_viewers"),
-        metric("uniqMerge(clickers)", "clickers"),
-        metric("uniqMerge(cart_adders)", "cart_adders"),
-        metric("uniqMerge(purchasers)", "purchasers"),
+        metric("page_viewers", "page_viewers"),
+        metric("clickers", "clickers"),
+        metric("cart_adders", "cart_adders"),
+        metric("purchasers", "purchasers"),
     ],
 )
 campaign_roas_chart_id = build_table_chart(
@@ -361,9 +363,9 @@ campaign_roas_chart_id = build_table_chart(
 )
 top_users_chart_id = build_table_chart(
     "Top Users by LTV",
-    user_ltv_id,
+    user_ltv_final_id,
     ["user_id"],
-    [metric("sum(total_revenue)", "sum_total_revenue")],
+    [metric("total_revenue", "total_revenue")],
 )
 
 dashboard_id = ensure_dashboard(token, "Marketing Analytics Overview")

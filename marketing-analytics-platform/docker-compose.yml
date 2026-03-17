@@ -54,6 +54,7 @@ services:
       - ./clickhouse/03-fact-tables.sql:/docker-entrypoint-initdb.d/03-fact-tables.sql
       - ./clickhouse/04-aggregated-tables.sql:/docker-entrypoint-initdb.d/04-aggregated-tables.sql
       - ./clickhouse/05-materialized-views.sql:/docker-entrypoint-initdb.d/05-materialized-views.sql
+      - ./clickhouse/05a-views-for-superset.sql:/docker-entrypoint-initdb.d/05a-views-for-superset.sql
       - ./clickhouse/06-projections-indexes.sql:/docker-entrypoint-initdb.d/06-projections-indexes.sql
       - ./clickhouse/08-backfill-website-history.sql:/docker-entrypoint-initdb.d/08-backfill-website-history.sql
       - ./clickhouse/09-backfill-ad-history.sql:/docker-entrypoint-initdb.d/09-backfill-ad-history.sql
