@@ -337,7 +337,8 @@ fact_events (INSERT 1000 строк)
 | **ARPU** | Average Revenue Per User | Доход / платящие пользователи за день |
 | **LTV** | Lifetime Value | Кумулятивный доход на пользователя из user_ltv |
 
-![Дашборд](docs/superset.png)
+![Дашборд](docs/superset_1.png)
+![Дашборд](docs/superset_2.png)
 
 Все запросы доступны в `clickhouse/07-marketing-metrics.sql`.
 

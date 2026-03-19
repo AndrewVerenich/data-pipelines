@@ -116,8 +116,10 @@ def ensure_dataset(token, database_id, schema, table_name):
             and dataset.get("schema") == schema
             and dataset.get("database", {}).get("id") == database_id
         ):
-            print(f"Dataset exists: {schema}.{table_name} -> id={dataset['id']}")
-            return dataset["id"]
+            # Recreate dataset to force fresh column metadata after view/schema changes.
+            request(f"/api/v1/dataset/{dataset['id']}", method="DELETE", token=token)
+            print(f"Dataset recreated: removed stale {schema}.{table_name} -> id={dataset['id']}")
+            break
 
     created = request(
         "/api/v1/dataset/",
@@ -326,6 +328,17 @@ campaign_performance_id = ensure_dataset(token, database_id, "marketing", "campa
 # Только представления: базовые таблицы содержат AggregateFunction(uniq) → JDBC отдаёт Bitmap, клиент падает
 conversion_funnel_merged_id = ensure_dataset(token, database_id, "marketing", "conversion_funnel_daily_merged")
 user_ltv_final_id = ensure_dataset(token, database_id, "marketing", "user_ltv_final")
+dau_daily_id = ensure_dataset(token, database_id, "marketing", "dau_daily")
+mau_snapshot_id = ensure_dataset(token, database_id, "marketing", "mau_snapshot")
+conversion_rate_daily_id = ensure_dataset(token, database_id, "marketing", "conversion_rate_daily")
+roas_by_campaign_id = ensure_dataset(token, database_id, "marketing", "roas_by_campaign")
+revenue_daily_id = ensure_dataset(token, database_id, "marketing", "revenue_daily")
+revenue_by_channel_id = ensure_dataset(token, database_id, "marketing", "revenue_by_channel")
+arpu_daily_id = ensure_dataset(token, database_id, "marketing", "arpu_daily")
+ltv_top_users_id = ensure_dataset(token, database_id, "marketing", "ltv_top_users")
+ltv_users_current_dim_id = ensure_dataset(token, database_id, "marketing", "ltv_users_current_dim")
+ltv_users_historical_dim_id = ensure_dataset(token, database_id, "marketing", "ltv_users_historical_dim")
+ltv_segments_performance_id = ensure_dataset(token, database_id, "marketing", "ltv_segments_performance")
 
 revenue_chart_id = build_timeseries_chart(
     "Daily Revenue by Source",
@@ -338,7 +351,7 @@ active_users_chart_id = build_timeseries_chart(
     "Daily Active Users by Source",
     daily_active_users_by_source_id,
     "event_date",
-    metric("unique_users", "unique_users"),
+    metric("max(unique_users)", "unique_users"),
     ["event_source"],
 )
 funnel_chart_id = build_multi_metric_timeseries_chart(
@@ -346,10 +359,10 @@ funnel_chart_id = build_multi_metric_timeseries_chart(
     conversion_funnel_merged_id,
     "event_date",
     [
-        metric("page_viewers", "page_viewers"),
-        metric("clickers", "clickers"),
-        metric("cart_adders", "cart_adders"),
-        metric("purchasers", "purchasers"),
+        metric("max(page_viewers)", "page_viewers"),
+        metric("max(clickers)", "clickers"),
+        metric("max(cart_adders)", "cart_adders"),
+        metric("max(purchasers)", "purchasers"),
     ],
 )
 campaign_roas_chart_id = build_table_chart(
@@ -365,7 +378,96 @@ top_users_chart_id = build_table_chart(
     "Top Users by LTV",
     user_ltv_final_id,
     ["user_id"],
-    [metric("total_revenue", "total_revenue")],
+    [metric("max(total_revenue)", "total_revenue")],
+)
+dau_trend_chart_id = build_timeseries_chart(
+    "DAU Trend (All Sources)",
+    dau_daily_id,
+    "event_date",
+    metric("max(dau)", "dau"),
+    [],
+)
+conversion_rate_chart_id = build_timeseries_chart(
+    "Conversion Rate Daily",
+    conversion_rate_daily_id,
+    "event_date",
+    metric("avg(conversion_rate)", "conversion_rate"),
+    [],
+)
+roas_detailed_chart_id = build_table_chart(
+    "ROAS by Campaign (Detailed)",
+    roas_by_campaign_id,
+    ["campaign_id", "campaign_name", "platform"],
+    [
+        metric("sum(revenue)", "revenue"),
+        metric("sum(cost)", "cost"),
+        metric("avg(roas)", "roas"),
+    ],
+)
+daily_revenue_chart_id = build_timeseries_chart(
+    "Daily Revenue (Purchases + Orders)",
+    revenue_daily_id,
+    "event_date",
+    metric("sum(revenue)", "revenue"),
+    [],
+)
+revenue_by_channel_chart_id = build_table_chart(
+    "Revenue by Channel",
+    revenue_by_channel_id,
+    ["channel"],
+    [
+        metric("sum(total_revenue)", "total_revenue"),
+        metric("sum(total_cost)", "total_cost"),
+        metric("sum(profit)", "profit"),
+    ],
+)
+arpu_daily_chart_id = build_timeseries_chart(
+    "ARPU Daily",
+    arpu_daily_id,
+    "event_date",
+    metric("avg(arpu)", "arpu"),
+    [],
+)
+ltv_top_users_detailed_chart_id = build_table_chart(
+    "LTV Top 100 Users (Detailed)",
+    ltv_top_users_id,
+    ["user_id"],
+    [
+        metric("max(total_revenue)", "total_revenue"),
+        metric("max(order_count)", "order_count"),
+        metric("max(avg_order_value)", "avg_order_value"),
+        metric("max(customer_lifespan_days)", "customer_lifespan_days"),
+    ],
+)
+ltv_current_dim_chart_id = build_table_chart(
+    "LTV with Current User Dimensions",
+    ltv_users_current_dim_id,
+    ["user_id", "name", "acquisition_channel", "segment"],
+    [
+        metric("max(total_revenue)", "total_revenue"),
+        metric("max(order_count)", "order_count"),
+        metric("max(avg_order_value)", "avg_order_value"),
+    ],
+)
+ltv_historical_dim_chart_id = build_table_chart(
+    "LTV with Historical Segment",
+    ltv_users_historical_dim_id,
+    ["name", "segment_at_first_purchase", "acquisition_channel"],
+    [
+        metric("max(total_revenue)", "total_revenue"),
+        metric("max(order_count)", "order_count"),
+    ],
+)
+ltv_segments_chart_id = build_table_chart(
+    "User Segments Performance",
+    ltv_segments_performance_id,
+    ["segment"],
+    [
+        metric("sum(users)", "users"),
+        metric("sum(total_revenue)", "total_revenue"),
+        metric("avg(avg_ltv)", "avg_ltv"),
+        metric("avg(avg_orders)", "avg_orders"),
+    ],
 )
 
 dashboard_id = ensure_dashboard(token, "Marketing Analytics Overview")
@@ -377,6 +479,16 @@ wire_dashboard_layout(
         funnel_chart_id,
         campaign_roas_chart_id,
         top_users_chart_id,
+        dau_trend_chart_id,
+        conversion_rate_chart_id,
+        roas_detailed_chart_id,
+        daily_revenue_chart_id,
+        revenue_by_channel_chart_id,
+        arpu_daily_chart_id,
+        ltv_top_users_detailed_chart_id,
+        ltv_current_dim_chart_id,
+        ltv_historical_dim_chart_id,
+        ltv_segments_chart_id,
     ],
 )
 print("Superset bootstrap completed")
