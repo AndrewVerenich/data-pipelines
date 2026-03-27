@@ -17,6 +17,24 @@
 
 ## 🚀 Доступные пайплайны
 
+### 📈 [Marketing Analytics Platform](./marketing-analytics-platform/README.md)
+
+**Стек:** ClickHouse • Apache Kafka • Kotlin / Spring Boot • Apache Superset
+
+Real-time / batch Data Warehouse для маркетинговой аналитики: ingestion событий из Kafka, dimension modeling (star schema, SCD Type 2), инкрементальная агрегация и маркетинговые метрики.
+
+**Ключевые возможности:**
+- ✅ Многослойная DWH: Raw → Dimension → Fact → Aggregated
+- ✅ Ingestion из Kafka через Kafka Engine + Materialized Views
+- ✅ Star schema с dimension tables (SCD Type 2)
+- ✅ SummingMergeTree / AggregatingMergeTree, Projections, Data Skipping Indexes
+- ✅ Метрики: DAU, MAU, Conversion Rate, CAC, ROAS, ARPU, LTV
+- ✅ Генерация событий (website / ad / backend) на Kotlin + Spring Boot
+- ✅ BI-дашборды в Apache Superset
+- ✅ Historical backfill для наглядных графиков
+
+---
+
 ### 📊 [IoT Real-Time Analytics Pipeline](./iot-pipeline/README.md)
 
 **Стек:** PostgreSQL • Debezium • Apache Kafka • Kafka Streams • ClickHouse • Grafana
@@ -76,21 +94,3 @@
 - ✅ Оркестрация процессов и DAG‑ов в Apache Airflow
 - ✅ Мониторинг Kafka топиков через Kafka UI
 - ✅ Docker Compose для оркестрации всех компонентов
-
----
-
-### 📈 [Marketing Analytics Platform](./marketing-analytics-platform/README.md)
-
-**Стек:** ClickHouse • Apache Kafka • Kotlin / Spring Boot • Apache Superset
-
-Real-time / batch Data Warehouse для маркетинговой аналитики: ingestion событий из Kafka, dimension modeling (star schema, SCD Type 2), инкрементальная агрегация и маркетинговые метрики.
-
-**Ключевые возможности:**
-- ✅ Многослойная DWH: Raw → Dimension → Fact → Aggregated
-- ✅ Ingestion из Kafka через Kafka Engine + Materialized Views
-- ✅ Star schema с dimension tables (SCD Type 2)
-- ✅ SummingMergeTree / AggregatingMergeTree, Projections, Data Skipping Indexes
-- ✅ Метрики: DAU, MAU, Conversion Rate, CAC, ROAS, ARPU, LTV
-- ✅ Генерация событий (website / ad / backend) на Kotlin + Spring Boot
-- ✅ BI-дашборды в Apache Superset
-- ✅ Historical backfill для наглядных графиков
