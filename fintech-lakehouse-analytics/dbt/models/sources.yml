@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: raw_fintech
+    schema: default
+    tables:
+      - name: customers
+      - name: accounts
+      - name: merchants
+      - name: transactions
+      - name: loans
+      - name: loan_payments
+      - name: exchange_rates

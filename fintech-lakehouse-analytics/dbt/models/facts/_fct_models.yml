@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: fct_transaction
+    columns:
+      - name: transaction_sk
+        tests: [not_null, unique]
+      - name: amount
+        tests:
+          - not_null
+          - positive_amount
+  - name: fct_daily_balance
+    columns:
+      - name: account_id
+        tests: [not_null]
+  - name: fct_loan
+    columns:
+      - name: loan_sk
+        tests: [not_null, unique]
