@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: int_transactions_enriched
+    columns:
+      - name: transaction_id
+        tests: [not_null, unique]
+  - name: int_customer_account_summary
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]
+  - name: int_loan_performance
+    columns:
+      - name: loan_id
+        tests: [not_null, unique]

@@ -1,0 +1,5 @@
+version: 2
+
+macros:
+  - name: test_positive_amount
+    description: Ensure numeric amount is non-negative

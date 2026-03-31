@@ -82,15 +82,15 @@ Real-time / batch Data Warehouse для маркетинговой аналит�
 
 ### 🏦 [Fintech ELT Data Lakehouse Pipeline](./fintech-lakehouse-analytics/README.md)
 
-**Стек:** Postgres • Debezium • Apache Kafka • ClickHouse • dbt • Apache Airflow
+**Стек:** Postgres • Debezium • Apache Kafka • ClickHouse • dbt • Apache Airflow • Apache Superset
 
-Комплексный пайплайн для построения **Data Lakehouse** архитектуры в финансовой сфере с использованием **ELT‑подхода**: данные из Postgres через CDC попадают в Kafka, загружаются в ClickHouse, а затем трансформируются внутри хранилища с помощью dbt под управлением Airflow.
+Комплексный **Lakehouse/Analytics** пайплайн для финтех‑домена: OLTP‑домен (customers, accounts, merchants, transactions, loans), CDC ingestion через Debezium/Kafka, star schema в ClickHouse и последовательная оркестрация dbt‑слоёв в Airflow с BI‑витринами для Superset.
 
 **Ключевые возможности:**
-- ✅ Change Data Capture (CDC) из Postgres через Debezium
-- ✅ Потоковая доставка событий в Apache Kafka
-- ✅ Хранение сырых и преобразованных данных в ClickHouse (Lakehouse Storage)
-- ✅ ELT‑трансформации и моделирование данных через dbt
-- ✅ Оркестрация процессов и DAG‑ов в Apache Airflow
-- ✅ Мониторинг Kafka топиков через Kafka UI
-- ✅ Docker Compose для оркестрации всех компонентов
+- ✅ CDC ingestion из Postgres (Debezium + Kafka)
+- ✅ Raw/Core загрузка в ClickHouse через Kafka Engine + Materialized Views
+- ✅ Многослойное моделирование в dbt: staging -> intermediate -> dimensions -> facts -> marts
+- ✅ Star schema и популярные fintech‑метрики (CLV, RFM, retention, portfolio health, fraud indicators)
+- ✅ Последовательный Airflow DAG с quality gates (deps, seed, layer-by-layer run, test)
+- ✅ BI‑слой на Apache Superset поверх аналитических витрин
+- ✅ Docker Compose для локального production-like окружения

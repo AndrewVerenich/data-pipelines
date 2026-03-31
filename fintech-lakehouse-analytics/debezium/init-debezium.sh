@@ -9,7 +9,7 @@ curl -X POST http://debezium:8083/connectors -H "Content-Type: application/json"
     "database.password": "demo",
     "database.dbname": "fintech",
     "database.server.name": "postgres",
-    "table.include.list": "public.transactions,public.users",
+    "table.include.list": "public.customers,public.accounts,public.merchants,public.transactions,public.loans,public.loan_payments,public.exchange_rates",
     "plugin.name": "pgoutput",
     "slot.name": "fintech_slot",
     "topic.prefix": "fintech",

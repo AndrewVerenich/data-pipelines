@@ -64,6 +64,35 @@ services:
     networks:
       my-network:
 
+  data-loader:
+    image: postgres:15
+    container_name: fintech-data-loader
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      debezium:
+        condition: service_healthy
+      debezium-init:
+        condition: service_completed_successfully
+    environment:
+      PGPASSWORD: demo
+    volumes:
+      - ./postgres/seed.sql:/seed.sql
+    entrypoint:
+      - bash
+      - -c
+      - |
+        until curl -s http://debezium:8083/connectors | grep -q postgres-fintech-connector; do
+          echo "Waiting for Debezium connector..."
+          sleep 3
+        done
+        psql -h postgres -U demo -d fintech -v ON_ERROR_STOP=1 -f /seed.sql
+        echo "CDC seed load completed"
+    networks:
+      my-network:
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     environment:
@@ -142,6 +171,22 @@ services:
     networks:
       my-network:
 
+  superset:
+    build:
+      context: ./superset
+    container_name: superset
+    depends_on:
+      clickhouse:
+        condition: service_started
+    environment:
+      SUPERSET_CONFIG_PATH: /app/superset_home/superset_config.py
+    ports:
+      - "8089:8088"
+    volumes:
+      - superset-home:/app/superset_home
+    networks:
+      my-network:
+
   airflow:
     user: root
     image: apache/airflow:2.8.1
@@ -195,5 +240,6 @@ services:
 volumes:
   pgdata:
   clickhouse-data:
+  superset-home:
 networks:
   my-network:

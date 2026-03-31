@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: mart_daily_revenue
+    columns:
+      - name: day
+        tests: [not_null]
+  - name: mart_customer_lifetime_value
+    columns:
+      - name: customer_sk
+        tests: [not_null]
+  - name: mart_customer_rfm_segmentation
+    columns:
+      - name: segment
+        tests:
+          - accepted_values:
+              values: ['VIP', 'LOYAL', 'REGULAR']
+  - name: mart_monthly_cohort_retention
+  - name: mart_payment_channel_mix
+  - name: mart_loan_portfolio_health
+  - name: mart_merchant_category_spend
+  - name: mart_fraud_risk_indicators
