@@ -416,7 +416,7 @@ if mart_fraud_id:
             token,
             "Индикаторы риска (скорость / международные / failed)",
             mart_fraud_id,
-            ["customer_sk", "activity_day"],
+            ["customer_id", "activity_day"],
             [
                 metric("max(tx_count)", "tx_count"),
                 metric("max(total_amount_usd)", "total_amount_usd"),
@@ -432,7 +432,7 @@ if mart_clv_id:
             token,
             "Топ клиентов по CLV (USD)",
             mart_clv_id,
-            ["customer_sk"],
+            ["customer_id"],
             [
                 metric("max(lifetime_value_usd)", "lifetime_value_usd"),
                 metric("max(transaction_count)", "transaction_count"),

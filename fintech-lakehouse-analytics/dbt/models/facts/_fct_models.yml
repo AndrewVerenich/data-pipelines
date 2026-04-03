@@ -5,6 +5,8 @@ models:
     columns:
       - name: transaction_sk
         tests: [not_null, unique]
+      - name: customer_id
+        tests: [not_null]
       - name: amount
         tests:
           - not_null

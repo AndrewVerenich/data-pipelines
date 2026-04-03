@@ -84,10 +84,6 @@ services:
       - bash
       - -c
       - |
-        until curl -s http://debezium:8083/connectors | grep -q postgres-fintech-connector; do
-          echo "Waiting for Debezium connector..."
-          sleep 3
-        done
         psql -h postgres -U demo -d fintech -v ON_ERROR_STOP=1 -f /seed.sql
         echo "CDC seed load completed"
     networks:
@@ -162,12 +158,14 @@ services:
     build:
       context: ./dbt
     container_name: dbt
+    ports:
+      - "8082:8082"
     depends_on:
       clickhouse:
         condition: service_started
     working_dir: /usr/app
-    entrypoint: [ "dbt" ]
-    command: [ "run" ]
+    entrypoint: [ "bash", "-lc" ]
+    command: "dbt deps && dbt run"
     networks:
       my-network:
 

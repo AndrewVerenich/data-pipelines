@@ -7,7 +7,7 @@ models:
         tests: [not_null]
   - name: mart_customer_lifetime_value
     columns:
-      - name: customer_sk
+      - name: customer_id
         tests: [not_null]
   - name: mart_customer_rfm_segmentation
     columns:
@@ -20,3 +20,6 @@ models:
   - name: mart_loan_portfolio_health
   - name: mart_merchant_category_spend
   - name: mart_fraud_risk_indicators
+    columns:
+      - name: customer_id
+        tests: [not_null]

@@ -6,4 +6,4 @@ select
     month_num,
     day_of_month,
     is_weekend
-from {{ ref('dim_date') }}
+from {{ ref('seed_dim_date') }}

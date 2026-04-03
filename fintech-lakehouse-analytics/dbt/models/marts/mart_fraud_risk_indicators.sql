@@ -1,5 +1,5 @@
 select
-    customer_sk,
+    customer_id,
     toDate(created_at) as activity_day,
     count() as tx_count,
     sum(amount_usd) as total_amount_usd,

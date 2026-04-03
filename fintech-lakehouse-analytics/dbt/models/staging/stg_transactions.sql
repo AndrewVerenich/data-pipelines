@@ -1,5 +1,5 @@
 select
-    id as transaction_id,
+    transaction_id,
     customer_id,
     account_id,
     merchant_id,
@@ -15,4 +15,25 @@ select
     is_international,
     created_at,
     updated_at
-from {{ source('raw_fintech', 'transactions') }}
+from (
+    select
+        id as transaction_id,
+        customer_id,
+        account_id,
+        merchant_id,
+        transaction_type,
+        transaction_status,
+        payment_channel,
+        device_type,
+        currency_code,
+        exchange_rate,
+        amount,
+        amount_usd,
+        fee_amount,
+        is_international,
+        created_at,
+        updated_at,
+        row_number() over (partition by id order by updated_at desc, created_at desc) as _cdc_rn
+    from {{ source('raw_fintech', 'transactions') }}
+)
+where _cdc_rn = 1

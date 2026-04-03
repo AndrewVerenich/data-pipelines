@@ -79,7 +79,7 @@ flowchart TB
   DA["<b>dim_account</b><br>dbt table<br>─────────────────<br>account_sk · String SK<br>account_id · UInt64 NK<br>customer_id · UInt64 FK<br>account_type · LC<br>account_status · LC<br>currency_code · LC<br>opened_at · DateTime64"]
   DM["<b>dim_merchant</b><br>dbt table<br>─────────────────<br>merchant_sk · String SK<br>merchant_id · UInt64 NK<br>merchant_name · String<br>merchant_category · LC<br>mcc_code · String<br>merchant_country / city · String<br>is_online · UInt8"]
   DD["<b>dim_date</b><br>dbt table (seed)<br>─────────────────<br>date_sk · String SK<br>date_day · Date<br>year_num / quarter_num / month_num<br>day_of_month · UInt8<br>is_weekend · UInt8"]
-  FT["<b>fct_transaction</b><br>dbt table<br>─────────────────<br>transaction_sk · String SK<br>transaction_id · UInt64 NK<br>customer_sk / account_sk / merchant_sk / date_sk<br>transaction_type · LC<br>transaction_status · LC<br>payment_channel · LC<br>device_type · LC<br>amount · Float64<br>amount_usd · Float64<br>fee_amount · Float64<br>is_international · UInt8<br>created_at · DateTime64"]
+  FT["<b>fct_transaction</b><br>dbt table<br>─────────────────<br>transaction_sk · String SK<br>transaction_id · UInt64 NK<br>customer_id · UInt64 NK<br>customer_sk / account_sk / merchant_sk / date_sk<br>transaction_type · LC<br>transaction_status · LC<br>payment_channel · LC<br>device_type · LC<br>amount · Float64<br>amount_usd · Float64<br>fee_amount · Float64<br>is_international · UInt8<br>created_at · DateTime64"]
 
   DC -->|"customer_sk"| FT
   DA -->|"account_sk"| FT
@@ -183,7 +183,7 @@ Airflow DAG `fintech_dbt_layered_hourly` решает задачу управл�
 | 5 | Траты по категории мерчанта (USD) | Bar (dist_bar) | `mart_merchant_category_spend` | `total_spend_usd` по `merchant_category` |
 | 6 | Когорты: активные клиенты | Table | `mart_monthly_cohort_retention` | `cohort_month`, `active_month`, `cohort_age_month`, `active_customers` |
 | 7 | Индикаторы риска | Table | `mart_fraud_risk_indicators` | Клиент/день, объём транзакций, international, failed |
-| 8 | Топ клиентов по CLV (USD) | Table | `mart_customer_lifetime_value` | `lifetime_value_usd`, `transaction_count` по `customer_sk` |
+| 8 | Топ клиентов по CLV (USD) | Table | `mart_customer_lifetime_value` | `lifetime_value_usd`, `transaction_count` по `customer_id` |
 
 Подключение к БД в Superset: **ClickHouse Fintech** → `clickhousedb://admin@…/default`.
 
