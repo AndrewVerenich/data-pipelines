@@ -1,19 +1,24 @@
 # Data Pipelines
 
-Коллекция production-ready data pipelines, демонстрирующих современные подходы к построению масштабируемых систем обработки данных
+Коллекция **production-like** пайплайнов: каждый проект в репозитории — это законченный контур «данные → хранилище → трансформации → оркестрация (где нужно) → визуализация», собранный в **Docker Compose** и приближенный к тому, как подобные системы выглядят в продуктовой среде.
 
-Этот репозиторий содержит реализованные data pipelines с использованием различных технологических стеков. Каждый пайплайн является полноценным решением для конкретных use cases в области Data Engineering.
+Здесь намеренно сочетаются **разные архитектурные акценты**:
+- **Lakehouse / ELT** ([Fintech](./fintech-lakehouse-analytics/README.md)): CDC из OLTP, колоночное хранилище, **dbt**-слои и витрины, **Airflow**, **Superset**.
+- **Real-time DWH из Kafka** ([Marketing](./marketing-analytics-platform/README.md)): события в Kafka, ClickHouse, star schema и предагрегации, Superset.
+- **CDC + stream processing** ([IoT](./iot-pipeline/README.md)): Debezium, Kafka Streams, ClickHouse, Grafana.
+- **Классический batch** ([Ecommerce](./ecommerce-batch-pipeline/README.md)): HDFS, Spark, Livy, Airflow, PostgreSQL, Superset.
+- **Стриминговая обработка** ([User Behaviour](./user-behaviour-pipeline/README.md)): Flink, ClickHouse, Grafana.
 
 ## 🎯 Цель проекта
 
-Демонстрация экспертизы в области Data Engineering:
-- Архитектурное проектирование data pipelines
-- Работа со streaming данными
-- Интеграция различных систем хранения данных
-- Мониторинг и визуализация метрик
-- Real-time data processing
-- CDC (Change Data Capture)
-- ETL/ELT процессы
+Демонстрация **инженерных компетенций в Data Engineering** — от схемы данных и ingestion до воспроизводимых витрин и 
+дашбордов:
+
+- **Архитектура пайплайнов**: разделение слоёв (raw / staging / core / marts), паттерны Kafka Engine + Materialized Views в ClickHouse, сравнение batch и streaming.
+- **Качество и моделирование**: dimensional modeling (star schema), surrogate keys, тесты на гранях данных (**dbt** в fintech), дедупликация CDC-событий в staging.
+- **Интеграция систем**: OLTP + CDC (**Debezium**), брокеры (**Kafka**), OLAP (**ClickHouse**), оркестрация (**Airflow**), BI (**Superset**, **Grafana**).
+- **ELT vs ETL**: трансформации в аналитическом хранилище (dbt + ClickHouse) напротив вынесенной обработки (Spark, Flink).
+- **Наблюдаемость и потребление**: бизнес-метрики в дашбордах, явные URL и учётные данные для локального запуска, документация по домену в README каждого проекта.
 
 ## 🚀 Доступные пайплайны
 
@@ -39,18 +44,16 @@ Real-time / batch Data Warehouse для маркетинговой аналит�
 
 **Стек:** Postgres • Debezium • Apache Kafka • ClickHouse • dbt • Apache Airflow • Apache Superset
 
-Production-like ELT-пайплайн для финтех-аналитики: от CDC-захвата таблиц Postgres до бизнес-витрин в ClickHouse с
-оркестрацией в Airflow и дашбордами в Superset. star schema с surrogate keys, CDC-дедупликация и витрины с
-финтех-метриками.
+Production-like **ELT lakehouse** для финтех-домена: CDC семи таблиц Postgres → Kafka → ClickHouse, затем **dbt** (26 моделей, тесты на ключевых гранях) → витрины → **Airflow** (послойный запуск и quality gate) → **Superset** (дашборд и чарты из коробки).
 
 **Ключевые возможности:**
-- ✅ CDC ingestion из Postgres через Debezium + Kafka
-- ✅ Real-time загрузка в ClickHouse через Kafka Engine + Materialized Views
+- ✅ CDC ingestion из Postgres через Debezium + Kafka (7 таблиц)
+- ✅ Загрузка в ClickHouse через Kafka Engine + Materialized Views
 - ✅ Многослойное моделирование в dbt: staging → intermediate → dimensions → facts → marts
 - ✅ Star schema с surrogate keys и CDC-дедупликацией в staging
-- ✅ бизнес-витрины: CLV, RFM-сегментация, когортная retention, fraud indicators и др.
-- ✅ Последовательный Airflow DAG: pre-checks → seed → layers runs → test
-- ✅ Автоматический bootstrap Superset: дашборд «Fintech Analytics»
+- ✅ Восемь бизнес-витрин: CLV, RFM, когортная retention, здоровье кредитного портфеля, fraud indicators и др.
+- ✅ Последовательный Airflow DAG: pre-checks → seed → прогон по тегам слоёв → `dbt test`
+- ✅ Автоматический bootstrap Apache Superset: дашборд «Fintech Analytics»
 
 ---
 
