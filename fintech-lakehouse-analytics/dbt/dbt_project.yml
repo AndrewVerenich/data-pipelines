@@ -2,6 +2,9 @@ name: 'fintech_project'
 version: '1.0'
 profile: 'clickhouse_profile'
 
+on-run-start:
+  - '{{ drop_clickhouse_dbt_backups() }}'
+
 model-paths: ["models"]
 seed-paths: ["seeds"]
 macro-paths: ["macros"]
@@ -16,7 +19,7 @@ models:
       materialized: view
       tags: ['intermediate']
     dimensions:
-      materialized: table
+      materialized: view
       tags: ['dimensions']
     facts:
       materialized: table
@@ -27,4 +30,5 @@ models:
 
 seeds:
   fintech_project:
-    +schema: default
+    +full_refresh: true
+

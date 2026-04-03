@@ -143,12 +143,12 @@ SELECT
     JSON_VALUE(value, '$.payload.after.phone') AS phone,
     JSON_VALUE(value, '$.payload.after.country') AS country,
     JSON_VALUE(value, '$.payload.after.city') AS city,
-    toDate(JSON_VALUE(value, '$.payload.after.date_of_birth')) AS date_of_birth,
+    addDays(toDate('1970-01-01'), toInt32(JSON_VALUE(value, '$.payload.after.date_of_birth'))) AS date_of_birth,
     JSON_VALUE(value, '$.payload.after.kyc_status') AS kyc_status,
     JSON_VALUE(value, '$.payload.after.risk_level') AS risk_level,
-    toUInt8(JSON_VALUE(value, '$.payload.after.is_active')) AS is_active,
-    parseDateTime64BestEffort(JSON_VALUE(value, '$.payload.after.created_at'), 6) AS created_at,
-    parseDateTime64BestEffort(JSON_VALUE(value, '$.payload.after.updated_at'), 6) AS updated_at
+    toUInt8(lowerUTF8(JSON_VALUE(value, '$.payload.after.is_active')) = 'true') AS is_active,
+    toDateTime64(toInt64(JSON_VALUE(value, '$.payload.after.created_at')) / 1000000, 6) AS created_at,
+    toDateTime64(toInt64(JSON_VALUE(value, '$.payload.after.updated_at')) / 1000000, 6) AS updated_at
 FROM raw_customers
 WHERE JSON_VALUE(value, '$.payload.after') IS NOT NULL;
 
@@ -162,8 +162,8 @@ SELECT
     toFloat64(JSON_VALUE(value, '$.payload.after.balance')) AS balance,
     toFloat64(JSON_VALUE(value, '$.payload.after.credit_limit')) AS credit_limit,
     toFloat64(JSON_VALUE(value, '$.payload.after.interest_rate')) AS interest_rate,
-    parseDateTime64BestEffort(JSON_VALUE(value, '$.payload.after.opened_at'), 6) AS opened_at,
-    parseDateTime64BestEffort(JSON_VALUE(value, '$.payload.after.updated_at'), 6) AS updated_at
+    toDateTime64(toInt64(JSON_VALUE(value, '$.payload.after.opened_at')) / 1000000, 6) AS opened_at,
+    toDateTime64(toInt64(JSON_VALUE(value, '$.payload.after.updated_at')) / 1000000, 6) AS updated_at
 FROM raw_accounts
 WHERE JSON_VALUE(value, '$.payload.after') IS NOT NULL;
 
@@ -175,8 +175,8 @@ SELECT
     JSON_VALUE(value, '$.payload.after.mcc_code') AS mcc_code,
     JSON_VALUE(value, '$.payload.after.country') AS country,
     JSON_VALUE(value, '$.payload.after.city') AS city,
-    toUInt8(JSON_VALUE(value, '$.payload.after.is_online')) AS is_online,
-    parseDateTime64BestEffort(JSON_VALUE(value, '$.payload.after.created_at'), 6) AS created_at
+    toUInt8(lowerUTF8(JSON_VALUE(value, '$.payload.after.is_online')) = 'true') AS is_online,
+    toDateTime64(toInt64(JSON_VALUE(value, '$.payload.after.created_at')) / 1000000, 6) AS created_at
 FROM raw_merchants
 WHERE JSON_VALUE(value, '$.payload.after') IS NOT NULL;
 
@@ -195,9 +195,9 @@ SELECT
     toFloat64(JSON_VALUE(value, '$.payload.after.amount')) AS amount,
     toFloat64(JSON_VALUE(value, '$.payload.after.amount_usd')) AS amount_usd,
     toFloat64(JSON_VALUE(value, '$.payload.after.fee_amount')) AS fee_amount,
-    toUInt8(JSON_VALUE(value, '$.payload.after.is_international')) AS is_international,
-    parseDateTime64BestEffort(JSON_VALUE(value, '$.payload.after.created_at'), 6) AS created_at,
-    parseDateTime64BestEffort(JSON_VALUE(value, '$.payload.after.updated_at'), 6) AS updated_at
+    toUInt8(lowerUTF8(JSON_VALUE(value, '$.payload.after.is_international')) = 'true') AS is_international,
+    toDateTime64(toInt64(JSON_VALUE(value, '$.payload.after.created_at')) / 1000000, 6) AS created_at,
+    toDateTime64(toInt64(JSON_VALUE(value, '$.payload.after.updated_at')) / 1000000, 6) AS updated_at
 FROM raw_transactions
 WHERE JSON_VALUE(value, '$.payload.after') IS NOT NULL;
 
@@ -213,9 +213,9 @@ SELECT
     toFloat64(JSON_VALUE(value, '$.payload.after.monthly_payment')) AS monthly_payment,
     toFloat64(JSON_VALUE(value, '$.payload.after.outstanding_balance')) AS outstanding_balance,
     JSON_VALUE(value, '$.payload.after.loan_status') AS loan_status,
-    parseDateTime64BestEffort(JSON_VALUE(value, '$.payload.after.issued_at'), 6) AS issued_at,
-    parseDateTime64BestEffort(JSON_VALUE(value, '$.payload.after.maturity_at'), 6) AS maturity_at,
-    parseDateTime64BestEffort(JSON_VALUE(value, '$.payload.after.updated_at'), 6) AS updated_at
+    toDateTime64(toInt64(JSON_VALUE(value, '$.payload.after.issued_at')) / 1000000, 6) AS issued_at,
+    toDateTime64(toInt64(JSON_VALUE(value, '$.payload.after.maturity_at')) / 1000000, 6) AS maturity_at,
+    toDateTime64(toInt64(JSON_VALUE(value, '$.payload.after.updated_at')) / 1000000, 6) AS updated_at
 FROM raw_loans
 WHERE JSON_VALUE(value, '$.payload.after') IS NOT NULL;
 
@@ -228,8 +228,8 @@ SELECT
     toFloat64(JSON_VALUE(value, '$.payload.after.interest_portion')) AS interest_portion,
     JSON_VALUE(value, '$.payload.after.payment_status') AS payment_status,
     JSON_VALUE(value, '$.payload.after.payment_channel') AS payment_channel,
-    parseDateTime64BestEffort(JSON_VALUE(value, '$.payload.after.payment_date'), 6) AS payment_date,
-    parseDateTime64BestEffort(JSON_VALUE(value, '$.payload.after.created_at'), 6) AS created_at
+    toDateTime64(toInt64(JSON_VALUE(value, '$.payload.after.payment_date')) / 1000000, 6) AS payment_date,
+    toDateTime64(toInt64(JSON_VALUE(value, '$.payload.after.created_at')) / 1000000, 6) AS created_at
 FROM raw_loan_payments
 WHERE JSON_VALUE(value, '$.payload.after') IS NOT NULL;
 
@@ -239,7 +239,7 @@ SELECT
     JSON_VALUE(value, '$.payload.after.base_currency') AS base_currency,
     JSON_VALUE(value, '$.payload.after.target_currency') AS target_currency,
     toFloat64(JSON_VALUE(value, '$.payload.after.rate')) AS rate,
-    toDate(JSON_VALUE(value, '$.payload.after.effective_date')) AS effective_date,
-    parseDateTime64BestEffort(JSON_VALUE(value, '$.payload.after.created_at'), 6) AS created_at
+    addDays(toDate('1970-01-01'), toInt32(JSON_VALUE(value, '$.payload.after.effective_date'))) AS effective_date,
+    toDateTime64(toInt64(JSON_VALUE(value, '$.payload.after.created_at')) / 1000000, 6) AS created_at
 FROM raw_exchange_rates
 WHERE JSON_VALUE(value, '$.payload.after') IS NOT NULL;

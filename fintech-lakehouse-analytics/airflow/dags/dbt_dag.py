@@ -39,26 +39,18 @@ with DAG(
         python_callable=lambda: print("Raw CDC tables assumed fresh for demo")
     )
 
+    # dbt packages are installed in the dbt image (Dockerfile: RUN dbt deps). A separate
+    # deps task would not help: each DockerOperator run uses a new container with no shared FS.
     with TaskGroup(group_id="prepare") as prepare:
-        dbt_deps = DockerOperator(
-            task_id='dbt_deps',
-            image='fintech-lakehouse-analytics-dbt:latest',
-            command='deps',
-            docker_url='unix://var/run/docker.sock',
-            network_mode='fintech-lakehouse-analytics_my-network',
-            working_dir='/usr/app',
-            mount_tmp_dir=False
-        )
         dbt_seed = DockerOperator(
             task_id='dbt_seed',
             image='fintech-lakehouse-analytics-dbt:latest',
-            command='seed',
+            command='seed --full-refresh',
             docker_url='unix://var/run/docker.sock',
             network_mode='fintech-lakehouse-analytics_my-network',
             working_dir='/usr/app',
             mount_tmp_dir=False
         )
-        dbt_deps >> dbt_seed
 
     with TaskGroup(group_id="transform") as transform:
         run_staging = DockerOperator(

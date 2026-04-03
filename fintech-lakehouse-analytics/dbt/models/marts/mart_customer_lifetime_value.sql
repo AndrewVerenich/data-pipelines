@@ -1,5 +1,5 @@
 select
-    customer_sk,
+    customer_id,
     sum(amount_usd) as lifetime_value_usd,
     count() as transaction_count
 from {{ ref('fct_transaction') }}
