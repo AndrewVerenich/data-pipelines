@@ -35,6 +35,25 @@ Real-time / batch Data Warehouse для маркетинговой аналит�
 
 ---
 
+### 🏦 [Fintech ELT Data Lakehouse Pipeline](./fintech-lakehouse-analytics/README.md)
+
+**Стек:** Postgres • Debezium • Apache Kafka • ClickHouse • dbt • Apache Airflow • Apache Superset
+
+Production-like ELT-пайплайн для финтех-аналитики: от CDC-захвата таблиц Postgres до бизнес-витрин в ClickHouse с
+оркестрацией в Airflow и дашбордами в Superset. star schema с surrogate keys, CDC-дедупликация и витрины с
+финтех-метриками.
+
+**Ключевые возможности:**
+- ✅ CDC ingestion из Postgres через Debezium + Kafka
+- ✅ Real-time загрузка в ClickHouse через Kafka Engine + Materialized Views
+- ✅ Многослойное моделирование в dbt: staging → intermediate → dimensions → facts → marts
+- ✅ Star schema с surrogate keys и CDC-дедупликацией в staging
+- ✅ бизнес-витрины: CLV, RFM-сегментация, когортная retention, fraud indicators и др.
+- ✅ Последовательный Airflow DAG: pre-checks → seed → layers runs → test
+- ✅ Автоматический bootstrap Superset: дашборд «Fintech Analytics»
+
+---
+
 ### 📊 [IoT Real-Time Analytics Pipeline](./iot-pipeline/README.md)
 
 **Стек:** PostgreSQL • Debezium • Apache Kafka • Kafka Streams • ClickHouse • Grafana
@@ -80,17 +99,4 @@ Real-time / batch Data Warehouse для маркетинговой аналит�
 - ✅ Эмуляция пользовательского поведения через WebSocket Gateway
 - ✅ Docker Compose для оркестрации всех компонентов
 
-### 🏦 [Fintech ELT Data Lakehouse Pipeline](./fintech-lakehouse-analytics/README.md)
 
-**Стек:** Postgres • Debezium • Apache Kafka • ClickHouse • dbt • Apache Airflow • Apache Superset
-
-Комплексный **Lakehouse/Analytics** пайплайн для финтех‑домена: OLTP‑домен (customers, accounts, merchants, transactions, loans), CDC ingestion через Debezium/Kafka, star schema в ClickHouse и последовательная оркестрация dbt‑слоёв в Airflow с BI‑витринами для Superset.
-
-**Ключевые возможности:**
-- ✅ CDC ingestion из Postgres (Debezium + Kafka)
-- ✅ Raw/Core загрузка в ClickHouse через Kafka Engine + Materialized Views
-- ✅ Многослойное моделирование в dbt: staging -> intermediate -> dimensions -> facts -> marts
-- ✅ Star schema и популярные fintech‑метрики (CLV, RFM, retention, portfolio health, fraud indicators)
-- ✅ Последовательный Airflow DAG с quality gates (deps, seed, layer-by-layer run, test)
-- ✅ BI‑слой на Apache Superset поверх аналитических витрин
-- ✅ Docker Compose для локального production-like окружения
