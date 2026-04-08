@@ -1,6 +1,6 @@
 package com.example.streams.topology
 
-import com.example.streams.cdc.RoomConfigCdc
+import com.example.streams.cdc.RoomConfigCdcParser
 import com.example.streams.model.*
 import com.example.streams.serde.jacksonSerde
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -16,7 +16,7 @@ object SmartHomeTopology {
 
   private const val CDC_ROOM = "iot.public.room_config"
 
-  fun build(builder: StreamsBuilder, mapper: ObjectMapper) {
+  fun build(builder: StreamsBuilder, mapper: ObjectMapper, roomConfigCdcParser: RoomConfigCdcParser) {
     val stringSerde = Serdes.String()
     val roomSerde = jacksonSerde(mapper, RoomConfig::class.java)
     val tempSerde = jacksonSerde(mapper, TemperatureReading::class.java)
@@ -28,7 +28,7 @@ object SmartHomeTopology {
 
     val roomTable: KTable<String, RoomConfig> = builder
       .stream(CDC_ROOM, Consumed.with(stringSerde, stringSerde))
-      .mapValues { v -> RoomConfigCdc.parse(v) }
+      .mapValues { v -> roomConfigCdcParser.parse(v) }
       .filter { _, c -> c != null }
       .mapValues { _, c -> c!! }
       .selectKey { _, c -> c.roomId }
@@ -65,7 +65,7 @@ object SmartHomeTopology {
       .map { wk, agg ->
         val roomId = wk.key()
         val payload = mapOf(
-          "room_id" to roomId,
+          "roomId" to roomId,
           "avg_temp" to agg.avg(),
           "window_start_ms" to wk.window().start(),
           "window_end_ms" to wk.window().end(),
@@ -92,7 +92,7 @@ object SmartHomeTopology {
             )
             mapper.writeValueAsString(
               mapOf(
-                "room_id" to cfg.roomId,
+                "roomId" to cfg.roomId,
                 "action" to action,
                 "reason" to reason,
                 "ts" to Instant.now().toString(),
@@ -117,7 +117,7 @@ object SmartHomeTopology {
             val avgTemp = node.get("avg_temp").asDouble()
             mapper.writeValueAsString(
               mapOf(
-                "room_id" to cfg.roomId,
+                "roomId" to cfg.roomId,
                 "avg_temp" to avgTemp,
                 "desired_temperature" to cfg.desiredTemperature,
                 "ts" to Instant.now().toString(),
@@ -192,7 +192,7 @@ object SmartHomeTopology {
         val cfg = ctx.cfg
         mapper.writeValueAsString(
           mapOf(
-            "room_id" to cfg.roomId,
+            "roomId" to cfg.roomId,
             "action" to "LIGHTS_ON",
             "reason" to "motion_and_lux_below_${cfg.luxOnThreshold}",
             "ts" to Instant.now().toString(),
@@ -217,7 +217,7 @@ object SmartHomeTopology {
         val cfg = lc.cfg
         mapper.writeValueAsString(
           mapOf(
-            "room_id" to cfg.roomId,
+            "roomId" to cfg.roomId,
             "action" to "LIGHTS_OFF",
             "reason" to "lux_above_${cfg.luxOffThreshold}",
             "ts" to Instant.now().toString(),
@@ -253,7 +253,7 @@ object SmartHomeTopology {
       .map { _: String, dc: DoorAndConfig ->
         val cfg = dc.cfg
         val payload = mapOf(
-          "room_id" to cfg.roomId,
+          "roomId" to cfg.roomId,
           "type" to "INTRUSION",
           "severity" to "HIGH",
           "detail" to "Door or window open while armed",
@@ -274,7 +274,7 @@ object SmartHomeTopology {
       .map { _: String, mc: MotionAndConfig ->
         val cfg = mc.cfg
         val payload = mapOf(
-          "room_id" to cfg.roomId,
+          "roomId" to cfg.roomId,
           "type" to "MOTION_WHILE_ARMED",
           "severity" to "MEDIUM",
           "detail" to "Motion while armed",

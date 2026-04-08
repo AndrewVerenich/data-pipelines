@@ -1,7 +1,7 @@
--- Inbound Kafka -> MergeTree for Grafana. JSON field names match Spring JsonSerializer output.
+-- Inbound Kafka -> MergeTree for Grafana. JSON keys use camelCase (e.g. roomId) from Spring JsonSerializer.
 
 CREATE TABLE IF NOT EXISTS sensor_temperature_kafka (
-    room_id String,
+    roomId String,
     temperature Float64,
     ts String
 ) ENGINE = Kafka
@@ -20,13 +20,13 @@ ORDER BY (room_id, event_time);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS sensor_temperature_mv TO sensor_temperature AS
 SELECT
-    room_id,
+    roomId AS room_id,
     temperature,
     parseDateTimeBestEffortOrNull(ts) AS event_time
 FROM sensor_temperature_kafka;
 
 CREATE TABLE IF NOT EXISTS sensor_humidity_kafka (
-    room_id String,
+    roomId String,
     humidity Float64,
     ts String
 ) ENGINE = Kafka
@@ -44,11 +44,11 @@ CREATE TABLE IF NOT EXISTS sensor_humidity (
 ORDER BY (room_id, event_time);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS sensor_humidity_mv TO sensor_humidity AS
-SELECT room_id, humidity, parseDateTimeBestEffortOrNull(ts) AS event_time
+SELECT roomId AS room_id, humidity, parseDateTimeBestEffortOrNull(ts) AS event_time
 FROM sensor_humidity_kafka;
 
 CREATE TABLE IF NOT EXISTS commands_hvac_kafka (
-    room_id String,
+    roomId String,
     action String,
     reason String,
     ts String
@@ -69,14 +69,14 @@ ORDER BY (room_id, event_time);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS commands_hvac_mv TO commands_hvac AS
 SELECT
-    room_id,
+    roomId AS room_id,
     action,
     reason,
     parseDateTimeBestEffortOrNull(ts) AS event_time
 FROM commands_hvac_kafka;
 
 CREATE TABLE IF NOT EXISTS analytics_climate_kafka (
-    room_id String,
+    roomId String,
     avg_temp Float64,
     desired_temperature Float64,
     ts String
@@ -97,14 +97,14 @@ ORDER BY (room_id, event_time);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics_climate_mv TO analytics_climate AS
 SELECT
-    room_id,
+    roomId AS room_id,
     avg_temp,
     desired_temperature,
     parseDateTimeBestEffortOrNull(ts) AS event_time
 FROM analytics_climate_kafka;
 
 CREATE TABLE IF NOT EXISTS alerts_security_kafka (
-    room_id String,
+    roomId String,
     type String,
     severity String,
     detail String,
@@ -127,7 +127,7 @@ ORDER BY (event_time, room_id);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS alerts_security_mv TO alerts_security AS
 SELECT
-    room_id,
+    roomId AS room_id,
     type,
     severity,
     detail,

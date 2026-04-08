@@ -67,7 +67,7 @@ flowchart TB
 
 **Ключевые возможности:**
 - ✅ Замкнутый контур в симуляторе: стримы → команды → физика комнаты → снова датчики (на диаграмме — поток данных)
-- ✅ CDC конфигурации (`room_config`) без опроса БД из стримов; join KStream × KTable
+StateQueryController.kt- ✅ CDC конфигурации (`room_config`) без опроса БД из стримов; join KStream × KTable
 - ✅ Оконная агрегация климата (30 с, suppress), отдельные топологии света и охраны
 - ✅ ClickHouse: Kafka Engine + MergeTree + MV для температуры, HVAC, аналитики, тревог
 - ✅ REST на симуляторе (пользовательский конфиг) и REST на стримах (IQ по последнему HVAC)
@@ -184,7 +184,7 @@ iot-pipeline/
 │       ├── KafkaStreamsApplication.kt
 │       ├── topology/SmartHomeTopology.kt
 │       ├── stream/KafkaStreamsConfig.kt
-│       ├── cdc/RoomConfigCdc.kt
+│       ├── cdc/RoomConfigCdcParser.kt
 │       ├── model/Domain.kt
 │       ├── serde/JacksonSerde.kt
 │       └── api/StateQueryController.kt
@@ -222,7 +222,7 @@ Kafka Topic ──► Kafka Engine Table ──► Materialized View ──► M
 | **Security** | Дверь/окно и движение join с конфигом; при `armed` — merge в `alert.security` |
 | **IQ** | `hvacJsonStream.toTable` → store `last-hvac-store` → `GET /api/state/...` |
 
-Обработка в демо: `at_least_once`. Ключи сообщений по зонам: `room_id`.
+Обработка в демо: `at_least_once`. Ключ записи Kafka — идентификатор комнаты (строка); в JSON теле симулятора и стримов поле **`roomId`** (camelCase).
 
 ---
 

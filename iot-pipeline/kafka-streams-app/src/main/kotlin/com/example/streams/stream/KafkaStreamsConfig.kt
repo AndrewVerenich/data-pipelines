@@ -1,5 +1,6 @@
 package com.example.streams.stream
 
+import com.example.streams.cdc.RoomConfigCdcParser
 import com.example.streams.topology.SmartHomeTopology
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
@@ -33,10 +34,13 @@ class KafkaStreamsConfig {
   }
 
   @Bean
-  fun streamsCustomizer(mapper: ObjectMapper): KafkaStreamsInfrastructureCustomizer =
+  fun streamsCustomizer(
+    mapper: ObjectMapper,
+    roomConfigCdcParser: RoomConfigCdcParser,
+  ): KafkaStreamsInfrastructureCustomizer =
     object : KafkaStreamsInfrastructureCustomizer {
       override fun configureBuilder(builder: StreamsBuilder) {
-        SmartHomeTopology.build(builder, mapper)
+        SmartHomeTopology.build(builder, mapper, roomConfigCdcParser)
       }
     }
 }
