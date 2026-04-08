@@ -26,6 +26,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
       test: [ "CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1" ]
       interval: 10s
@@ -38,6 +39,18 @@ services:
     ports: [ "8080:8080" ]
     environment:
       - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./scripts/kafka-init-topics.sh:/run.sh:ro
+    entrypoint: [ "bash", "/run.sh" ]
 
   postgres:
     image: postgres:15
@@ -50,6 +63,7 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-room-config.sql
 
   debezium:
     image: debezium/connect:2.5
@@ -59,24 +73,34 @@ services:
     ports:
       - "8083:8083"
     environment:
-      BOOTSTRAP_SERVERS: kafka:9092
-      GROUP_ID: 1
-      CONFIG_STORAGE_TOPIC: debezium_config
-      OFFSET_STORAGE_TOPIC: debezium_offset
-      STATUS_STORAGE_TOPIC: debezium_status
+      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
+      CONNECT_GROUP_ID: 1
+      CONNECT_CONFIG_STORAGE_TOPIC: debezium_config
+      CONNECT_OFFSET_STORAGE_TOPIC: debezium_offset
+      CONNECT_STATUS_STORAGE_TOPIC: debezium_status
       CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_PLUGIN_PATH: /kafka/connect,/debezium-connector
-    volumes:
-      - ./debezium-plugins:/debezium-connector
+      CONNECT_REST_ADVERTISED_HOST_NAME: debezium
 
   debezium-init:
     image: curlimages/curl:8.5.0
     depends_on:
       - debezium
+      - kafka
     volumes:
-      - ./init-debezium.sh:/init-debezium.sh
-    entrypoint: ["sh", "/init-debezium.sh"]
+      - ./init-debezium.sh:/init-debezium.sh:ro
+    entrypoint: [ "sh", "/init-debezium.sh" ]
+
+  wait-debezium-topic:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+      debezium-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./scripts/wait-for-debezium-topic.sh:/run.sh:ro
+    entrypoint: [ "sh", "/run.sh" ]
 
   clickhouse:
     image: clickhouse/clickhouse-server:23.8
@@ -91,46 +115,44 @@ services:
       CLICKHOUSE_PASSWORD: admin123
       CLICKHOUSE_DB: default
 
-  wait-for-kafka:
-    image: confluentinc/cp-kafka:7.5.0
+  smart-home-simulator:
+    build:
+      context: ..
+      dockerfile: iot-pipeline/smart-home-simulator/Dockerfile
+    ports:
+      - "8085:8085"
     depends_on:
+      postgres:
+        condition: service_started
       kafka:
         condition: service_healthy
-    command: |
-      bash -c "
-        for i in {1..30}; do
-          if kafka-topics --bootstrap-server kafka:9092 --list | grep -q iot.public.sensor_data; then
-            echo 'Topic is ready!'
-            exit 0
-          fi
-          echo 'Waiting for topic... attempt $i'
-          sleep 2
-        done
-        echo 'Timeout waiting for topic'
-        exit 1
-      "
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/iot_db
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SERVER_PORT: "8085"
+    restart: on-failure
 
   kafka-streams-app:
     build:
-      context: ./kafka-streams-app
+      context: ..
+      dockerfile: iot-pipeline/kafka-streams-app/Dockerfile
     depends_on:
       kafka:
         condition: service_healthy
-      wait-for-kafka:
+      kafka-init:
         condition: service_completed_successfully
+      wait-debezium-topic:
+        condition: service_completed_successfully
+    ports:
+      - "8086:8086"
     environment:
-      - SPRING_KAFKA_STREAMS_BOOTSTRAP_SERVERS=kafka:9092
-    restart: on-failure
-
-  iot-data-generator:
-    build:
-      context: ./iot-data-generator
-    depends_on:
-      - postgres
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/iot_db
-      - SPRING_DATASOURCE_USERNAME=admin
-      - SPRING_DATASOURCE_PASSWORD=admin123
+      SPRING_KAFKA_STREAMS_BOOTSTRAP_SERVERS: kafka:9092
+      SERVER_PORT: "8086"
+      KAFKA_STREAMS_STATE_DIR: /tmp/kafka-streams-state
     restart: on-failure
 
   grafana:

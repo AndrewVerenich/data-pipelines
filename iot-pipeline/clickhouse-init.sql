@@ -1,32 +1,135 @@
-CREATE TABLE sensor_aggregates_kafka
-(
-    device_id    String,
-    window_start DateTime,
-    window_end   DateTime,
-    avg_temp     Float64,
-    avg_humidity Float64,
-    avg_pressure Float64,
-    count        UInt64
+-- Inbound Kafka -> MergeTree for Grafana. JSON field names match Spring JsonSerializer output.
+
+CREATE TABLE IF NOT EXISTS sensor_temperature_kafka (
+    room_id String,
+    temperature Float64,
+    ts String
 ) ENGINE = Kafka
 SETTINGS kafka_broker_list = 'kafka:9092',
-         kafka_topic_list = 'sensor.aggregates',
-         kafka_group_name = 'clickhouse-consumer',
+         kafka_topic_list = 'sensor.temperature',
+         kafka_group_name = 'clickhouse-smart-temp',
          kafka_format = 'JSONEachRow',
          kafka_num_consumers = 1;
 
-CREATE TABLE sensor_aggregates
-(
-    device_id    String,
-    window_start DateTime,
-    window_end   DateTime,
-    avg_temp     Float64,
-    avg_humidity Float64,
-    avg_pressure Float64,
-    count        UInt64
+CREATE TABLE IF NOT EXISTS sensor_temperature (
+    room_id String,
+    temperature Float64,
+    event_time DateTime
 ) ENGINE = MergeTree()
-ORDER BY window_start;
+ORDER BY (room_id, event_time);
 
-CREATE
-MATERIALIZED VIEW sensor_aggregates_mv TO sensor_aggregates AS
-SELECT *
-FROM sensor_aggregates_kafka;
+CREATE MATERIALIZED VIEW IF NOT EXISTS sensor_temperature_mv TO sensor_temperature AS
+SELECT
+    room_id,
+    temperature,
+    parseDateTimeBestEffortOrNull(ts) AS event_time
+FROM sensor_temperature_kafka;
+
+CREATE TABLE IF NOT EXISTS sensor_humidity_kafka (
+    room_id String,
+    humidity Float64,
+    ts String
+) ENGINE = Kafka
+SETTINGS kafka_broker_list = 'kafka:9092',
+         kafka_topic_list = 'sensor.humidity',
+         kafka_group_name = 'clickhouse-smart-hum',
+         kafka_format = 'JSONEachRow',
+         kafka_num_consumers = 1;
+
+CREATE TABLE IF NOT EXISTS sensor_humidity (
+    room_id String,
+    humidity Float64,
+    event_time DateTime
+) ENGINE = MergeTree()
+ORDER BY (room_id, event_time);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS sensor_humidity_mv TO sensor_humidity AS
+SELECT room_id, humidity, parseDateTimeBestEffortOrNull(ts) AS event_time
+FROM sensor_humidity_kafka;
+
+CREATE TABLE IF NOT EXISTS commands_hvac_kafka (
+    room_id String,
+    action String,
+    reason String,
+    ts String
+) ENGINE = Kafka
+SETTINGS kafka_broker_list = 'kafka:9092',
+         kafka_topic_list = 'command.hvac',
+         kafka_group_name = 'clickhouse-hvac-cmd',
+         kafka_format = 'JSONEachRow',
+         kafka_num_consumers = 1;
+
+CREATE TABLE IF NOT EXISTS commands_hvac (
+    room_id String,
+    action String,
+    reason String,
+    event_time DateTime
+) ENGINE = MergeTree()
+ORDER BY (room_id, event_time);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS commands_hvac_mv TO commands_hvac AS
+SELECT
+    room_id,
+    action,
+    reason,
+    parseDateTimeBestEffortOrNull(ts) AS event_time
+FROM commands_hvac_kafka;
+
+CREATE TABLE IF NOT EXISTS analytics_climate_kafka (
+    room_id String,
+    avg_temp Float64,
+    desired_temperature Float64,
+    ts String
+) ENGINE = Kafka
+SETTINGS kafka_broker_list = 'kafka:9092',
+         kafka_topic_list = 'analytics.climate',
+         kafka_group_name = 'clickhouse-analytics-climate',
+         kafka_format = 'JSONEachRow',
+         kafka_num_consumers = 1;
+
+CREATE TABLE IF NOT EXISTS analytics_climate (
+    room_id String,
+    avg_temp Float64,
+    desired_temperature Float64,
+    event_time DateTime
+) ENGINE = MergeTree()
+ORDER BY (room_id, event_time);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics_climate_mv TO analytics_climate AS
+SELECT
+    room_id,
+    avg_temp,
+    desired_temperature,
+    parseDateTimeBestEffortOrNull(ts) AS event_time
+FROM analytics_climate_kafka;
+
+CREATE TABLE IF NOT EXISTS alerts_security_kafka (
+    room_id String,
+    type String,
+    severity String,
+    detail String,
+    ts String
+) ENGINE = Kafka
+SETTINGS kafka_broker_list = 'kafka:9092',
+         kafka_topic_list = 'alert.security',
+         kafka_group_name = 'clickhouse-alerts-sec',
+         kafka_format = 'JSONEachRow',
+         kafka_num_consumers = 1;
+
+CREATE TABLE IF NOT EXISTS alerts_security (
+    room_id String,
+    type String,
+    severity String,
+    detail String,
+    event_time DateTime
+) ENGINE = MergeTree()
+ORDER BY (event_time, room_id);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS alerts_security_mv TO alerts_security AS
+SELECT
+    room_id,
+    type,
+    severity,
+    detail,
+    parseDateTimeBestEffortOrNull(ts) AS event_time
+FROM alerts_security_kafka;

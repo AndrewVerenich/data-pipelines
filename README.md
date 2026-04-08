@@ -5,7 +5,7 @@
 Здесь намеренно сочетаются **разные архитектурные акценты**:
 - **Lakehouse / ELT** ([Fintech](./fintech-lakehouse-analytics/README.md)): CDC из OLTP, колоночное хранилище, **dbt**-слои и витрины, **Airflow**, **Superset**.
 - **Real-time DWH из Kafka** ([Marketing](./marketing-analytics-platform/README.md)): события в Kafka, ClickHouse, star schema и предагрегации, Superset.
-- **CDC + stream processing** ([IoT](./iot-pipeline/README.md)): Debezium, Kafka Streams, ClickHouse, Grafana.
+- **Smart Home IoT** ([IoT](./iot-pipeline/README.md)): симулятор датчиков/актуаторов, Debezium CDC конфигурации, Kafka Streams (климат, свет, охрана), ClickHouse, Grafana.
 - **Классический batch** ([Ecommerce](./ecommerce-batch-pipeline/README.md)): HDFS, Spark, Livy, Airflow, PostgreSQL, Superset.
 - **Стриминговая обработка** ([User Behaviour](./user-behaviour-pipeline/README.md)): Flink, ClickHouse, Grafana.
 

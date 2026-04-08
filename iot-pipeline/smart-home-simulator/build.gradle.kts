@@ -12,20 +12,14 @@ java {
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.kafka:spring-kafka")
-    implementation("org.apache.kafka:kafka-streams")
-
-    implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    implementation("org.postgresql:postgresql")
 }
 
 tasks.bootJar {
-    archiveFileName.set("kafka-streams-app-${project.version}.jar")
-}
-
-tasks.bootRun {
-    args = listOf("--spring.profiles.active=local")
+    archiveFileName.set("smart-home-simulator-${project.version}.jar")
 }

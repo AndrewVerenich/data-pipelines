@@ -1,0 +1,86 @@
+{
+  "uid": "smart-home-main",
+  "title": "Smart Home — климат и HVAC",
+  "tags": ["iot", "smart-home"],
+  "timezone": "browser",
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Temperature by room",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
+        "rawQuery": true,
+        "rawSql": "SELECT event_time AS time, room_id, temperature AS value FROM sensor_temperature WHERE event_time > now() - INTERVAL 6 HOUR ORDER BY event_time",
+        "refId": "A"
+      }],
+      "fieldConfig": { "defaults": { "unit": "celsius" } }
+    },
+    {
+      "id": 2,
+      "title": "Humidity by room",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
+        "rawQuery": true,
+        "rawSql": "SELECT event_time AS time, room_id, humidity AS value FROM sensor_humidity WHERE event_time > now() - INTERVAL 6 HOUR ORDER BY event_time",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 3,
+      "title": "HVAC commands",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
+        "rawQuery": true,
+        "rawSql": "SELECT event_time AS time, room_id, action AS metric, 1 AS value FROM commands_hvac WHERE event_time > now() - INTERVAL 6 HOUR ORDER BY event_time",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 4,
+      "title": "Climate analytics — avg vs desired",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 17 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
+          "rawQuery": true,
+          "rawSql": "SELECT event_time AS time, room_id, avg_temp AS value FROM analytics_climate WHERE event_time > now() - INTERVAL 6 HOUR ORDER BY event_time",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
+          "rawQuery": true,
+          "rawSql": "SELECT event_time AS time, room_id, desired_temperature AS value FROM analytics_climate WHERE event_time > now() - INTERVAL 6 HOUR ORDER BY event_time",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "celsius" } }
+    },
+    {
+      "id": 5,
+      "title": "Security alerts",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 25 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
+        "rawQuery": true,
+        "rawSql": "SELECT event_time, room_id, type, severity, detail FROM alerts_security ORDER BY event_time DESC LIMIT 200",
+        "refId": "A"
+      }]
+    }
+  ]
+}
