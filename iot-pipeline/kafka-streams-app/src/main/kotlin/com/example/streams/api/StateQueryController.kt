@@ -19,29 +19,30 @@ class StateQueryController(
 ) {
 
   @GetMapping("/rooms/{roomId}/hvac")
-  fun lastHvac(@PathVariable roomId: String): Map<String, Any?> {
-    val raw = queryStore(roomId) ?: return mapOf("room_id" to roomId, "last_command" to null)
+  fun lastHvac(@PathVariable roomId: String): LastHvacResponse {
+    val raw = queryStore(roomId)
+      ?: return LastHvacResponse(roomId = roomId, action = null, reason = null)
     val node: JsonNode = mapper.readTree(raw)
-    return mapOf(
-      "room_id" to node.get("room_id").asText(),
-      "action" to node.get("action").asText(),
-      "reason" to node.get("reason")?.asText(),
+    return LastHvacResponse(
+      roomId = node.get("roomId").asText(),
+      action = node.get("action").asText(),
+      reason = node.get("reason")?.asText(),
     )
   }
 
   @GetMapping("/rooms")
-  fun allHvac(): List<Map<String, Any?>> {
+  fun allHvac(): List<LastHvacResponse> {
     val store = readOnlyStore() ?: return emptyList()
-    val out = mutableListOf<Map<String, Any?>>()
+    val out = mutableListOf<LastHvacResponse>()
     store.all().use { iter ->
       while (iter.hasNext()) {
         val e = iter.next()
         val node = mapper.readTree(e.value)
         out.add(
-          mapOf(
-            "room_id" to node.get("room_id").asText(),
-            "action" to node.get("action").asText(),
-            "reason" to node.get("reason")?.asText(),
+          LastHvacResponse(
+            roomId = node.get("roomId").asText(),
+            action = node.get("action").asText(),
+            reason = node.get("reason")?.asText(),
           ),
         )
       }
@@ -63,3 +64,9 @@ class StateQueryController(
       null
     }
 }
+
+data class LastHvacResponse(
+  val roomId: String,
+  val action: String?,
+  val reason: String?,
+)

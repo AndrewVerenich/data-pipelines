@@ -3,13 +3,19 @@ package com.example.streams.cdc
 import com.example.streams.model.RoomConfig
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import org.springframework.stereotype.Component
 
-object RoomConfigCdc {
-  private val mapper = ObjectMapper().findAndRegisterModules()
+fun interface RoomConfigCdcParser {
+  fun parse(raw: String): RoomConfig?
+}
 
-  fun parse(raw: String): RoomConfig? {
+@Component
+class DefaultRoomConfigCdcParser(
+  private val objectMapper: ObjectMapper,
+) : RoomConfigCdcParser {
+  override fun parse(raw: String): RoomConfig? {
     return try {
-      val root: JsonNode = mapper.readTree(raw)
+      val root: JsonNode = objectMapper.readTree(raw)
       val payload = root.get("payload") ?: return null
       val op = payload.get("op")?.asText() ?: return null
       if (op == "d") return null
