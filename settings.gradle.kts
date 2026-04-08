@@ -1,7 +1,7 @@
 rootProject.name = "data-pipelines"
 
 include(
-  "iot-pipeline:iot-data-generator",
+  "iot-pipeline:smart-home-simulator",
   "iot-pipeline:kafka-streams-app",
   "ecommerce-batch-pipeline:spark-app",
   "user-behaviour-pipeline:gateway-websocket",
