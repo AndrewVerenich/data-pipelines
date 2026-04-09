@@ -1,5 +1,9 @@
 package com.example.streams.model
 
+import com.example.streams.enums.DoorWindowState
+import com.example.streams.enums.HvacMode
+import com.example.streams.enums.LightingMode
+import com.example.streams.enums.SecurityMode
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -19,7 +23,7 @@ data class MotionReading(
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class DoorWindowReading(
   val roomId: String,
-  val state: String,
+  val state: DoorWindowState,
   val ts: String? = null,
 )
 
@@ -34,9 +38,9 @@ data class RoomConfig(
   val roomId: String,
   val desiredTemperature: Double,
   val climateDeadband: Double,
-  val hvacMode: String,
-  val securityMode: String,
-  val lightingMode: String,
+  val hvacMode: HvacMode,
+  val securityMode: SecurityMode,
+  val lightingMode: LightingMode,
   val luxOnThreshold: Double,
   val luxOffThreshold: Double,
 )

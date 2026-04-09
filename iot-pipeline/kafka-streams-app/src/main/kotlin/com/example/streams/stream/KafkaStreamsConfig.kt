@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.kafka.annotation.KafkaStreamsDefaultConfiguration
 import org.springframework.kafka.config.KafkaStreamsConfiguration
 import org.springframework.kafka.config.KafkaStreamsInfrastructureCustomizer
+import org.springframework.kafka.config.StreamsBuilderFactoryBeanConfigurer
 
 @Configuration
 class KafkaStreamsConfig {
@@ -42,5 +43,13 @@ class KafkaStreamsConfig {
       override fun configureBuilder(builder: StreamsBuilder) {
         SmartHomeTopology.build(builder, mapper, roomConfigCdcParser)
       }
+    }
+
+  @Bean
+  fun streamsBuilderFactoryBeanConfigurer(
+    streamsCustomizer: KafkaStreamsInfrastructureCustomizer,
+  ): StreamsBuilderFactoryBeanConfigurer =
+    StreamsBuilderFactoryBeanConfigurer { fb ->
+      fb.setInfrastructureCustomizer(streamsCustomizer)
     }
 }

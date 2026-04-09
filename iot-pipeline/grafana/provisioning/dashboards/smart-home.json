@@ -1,6 +1,6 @@
 {
   "uid": "smart-home-main",
-  "title": "Smart Home — климат и HVAC",
+  "title": "Smart Home — climate and HVAC",
   "tags": ["iot", "smart-home"],
   "timezone": "browser",
   "refresh": "10s",
