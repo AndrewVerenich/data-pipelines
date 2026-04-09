@@ -101,4 +101,3 @@ data class PatchRoomRequest(
   val luxOnThreshold: Double? = null,
   val luxOffThreshold: Double? = null,
 )
-

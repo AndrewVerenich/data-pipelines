@@ -67,7 +67,7 @@ flowchart TB
 
 **Ключевые возможности:**
 - ✅ Замкнутый контур в симуляторе: стримы → команды → физика комнаты → снова датчики (на диаграмме — поток данных)
-StateQueryController.kt- ✅ CDC конфигурации (`room_config`) без опроса БД из стримов; join KStream × KTable
+- ✅ CDC конфигурации (`room_config`) без опроса БД из стримов; join KStream × KTable
 - ✅ Оконная агрегация климата (30 с, suppress), отдельные топологии света и охраны
 - ✅ ClickHouse: Kafka Engine + MergeTree + MV для температуры, HVAC, аналитики, тревог
 - ✅ REST на симуляторе (пользовательский конфиг) и REST на стримах (IQ по последнему HVAC)
@@ -94,17 +94,23 @@ StateQueryController.kt- ✅ CDC конфигурации (`room_config`) без
 
 - **Docker** 20.10+
 - **Docker Compose** 2.0+
-- **JDK 17+** (сборка JAR локально; в Docker образах Gradle собирает сам)
+- **JDK 17+** (сборка JAR локально перед `docker compose build` для JVM-сервисов)
 
 ---
 
 ## 🚀 Быстрый старт
 
-1. Запуск из каталога **`iot-pipeline/`** (контекст Docker — корень `data-pipelines/`):
+1. Собери JAR локально (из корня `data-pipelines/`): образы JVM сервисов **не** собирают Gradle внутри Docker, а копируют `build/libs/*.jar`.
+
+```bash
+./gradlew :iot-pipeline:smart-home-simulator:bootJar :iot-pipeline:kafka-streams-app:bootJar
+```
+
+2. Запуск из каталога **`iot-pipeline/`** (контекст Docker — корень `data-pipelines/`):
 
 ```bash
 cd iot-pipeline
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 **Что происходит по шагам:**
@@ -114,12 +120,6 @@ docker-compose up -d --build
 4. Стартуют ClickHouse с `clickhouse-init.sql`, **smart-home-simulator**, **kafka-streams-app**, Grafana.
 
 Подождите **1–3 минуты** до стабильных кривых в Grafana.
-
-Локальная сборка JAR без Docker (из корня монорепозитория):
-
-```bash
-./gradlew :iot-pipeline:smart-home-simulator:bootJar :iot-pipeline:kafka-streams-app:bootJar
-```
 
 Остановка сервисов:
 
@@ -142,7 +142,7 @@ docker-compose down -v
 
 | Сервис | URL | Credentials | Описание |
 |--------|-----|-------------|----------|
-| **Grafana** | http://localhost:3000 | admin / admin | Дашборд «Smart Home — климат и HVAC» |
+| **Grafana** | http://localhost:3000 | admin / admin | Дашборд «Smart Home — climate and HVAC» |
 | **ClickHouse HTTP** | http://localhost:8123 | admin / admin123 | HTTP-интерфейс |
 | **ClickHouse TCP** | localhost:9000 | admin / admin123 | Нативный клиент |
 | **Kafka UI** | http://localhost:8080 | — | Обзор топиков и сообщений |
@@ -166,7 +166,7 @@ iot-pipeline/
 ├── init-debezium.sh                # Регистрация Postgres-коннектора (room_config)
 ├── clickhouse-init.sql             # Kafka Engine + MergeTree + MV
 ├── smart-home-simulator/
-│   ├── Dockerfile                  # Multi-stage: Gradle из корня монорепо
+│   ├── Dockerfile                  # eclipse-temurin: копирует предсобранный bootJar
 │   ├── build.gradle.kts
 │   └── src/main/kotlin/com/smarthome/simulator/
 │       ├── SmartHomeSimulatorApplication.kt
@@ -178,7 +178,7 @@ iot-pipeline/
 │       ├── config/                 # SmarthomeProperties
 │       └── model/                  # DTO для Kafka
 ├── kafka-streams-app/
-│   ├── Dockerfile
+│   ├── Dockerfile                  # eclipse-temurin: копирует предсобранный bootJar
 │   ├── build.gradle.kts
 │   └── src/main/kotlin/com/example/streams/
 │       ├── KafkaStreamsApplication.kt
@@ -186,6 +186,7 @@ iot-pipeline/
 │       ├── stream/KafkaStreamsConfig.kt
 │       ├── cdc/RoomConfigCdcParser.kt
 │       ├── model/Domain.kt
+│       ├── enums/WireEnums.kt     # Режимы / команды / тревоги (только Kafka Streams)
 │       ├── serde/JacksonSerde.kt
 │       └── api/StateQueryController.kt
 └── grafana/provisioning/
@@ -254,7 +255,7 @@ curl -s http://localhost:8086/api/state/rooms | jq .
 
 ## 📊 Grafana
 
-Провиженинг поднимает дашборд **«Smart Home — климат и HVAC»** (ClickHouse datasource `clickhouse-iot`).
+Провиженинг поднимает дашборд **«Smart Home — climate and HVAC»** (ClickHouse datasource `clickhouse-iot`).
 
 | Панель | Содержание |
 |--------|------------|

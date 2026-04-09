@@ -2,10 +2,13 @@ package com.example.streams.api
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import org.apache.kafka.streams.KafkaStreams
+import com.example.streams.enums.StreamOutputAction
 import org.apache.kafka.streams.StoreQueryParameters
 import org.apache.kafka.streams.state.QueryableStoreTypes
 import org.apache.kafka.streams.state.ReadOnlyKeyValueStore
+import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.kafka.annotation.KafkaStreamsDefaultConfiguration
+import org.springframework.kafka.config.StreamsBuilderFactoryBean
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
@@ -14,7 +17,8 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/state")
 class StateQueryController(
-  private val kafkaStreams: KafkaStreams,
+  @Qualifier(KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_BUILDER_BEAN_NAME)
+  private val streamsBuilderFactoryBean: StreamsBuilderFactoryBean,
   private val mapper: ObjectMapper,
 ) {
 
@@ -25,7 +29,7 @@ class StateQueryController(
     val node: JsonNode = mapper.readTree(raw)
     return LastHvacResponse(
       roomId = node.get("roomId").asText(),
-      action = node.get("action").asText(),
+      action = parseStreamAction(node),
       reason = node.get("reason")?.asText(),
     )
   }
@@ -41,7 +45,7 @@ class StateQueryController(
         out.add(
           LastHvacResponse(
             roomId = node.get("roomId").asText(),
-            action = node.get("action").asText(),
+            action = parseStreamAction(node),
             reason = node.get("reason")?.asText(),
           ),
         )
@@ -50,10 +54,20 @@ class StateQueryController(
     return out
   }
 
+  private fun parseStreamAction(node: JsonNode): StreamOutputAction? {
+    val n = node.get("action") ?: return null
+    return try {
+      StreamOutputAction.fromWire(n.asText())
+    } catch (_: IllegalArgumentException) {
+      null
+    }
+  }
+
   private fun queryStore(roomId: String): String? = readOnlyStore()?.get(roomId)
 
-  private fun readOnlyStore(): ReadOnlyKeyValueStore<String, String>? =
-    try {
+  private fun readOnlyStore(): ReadOnlyKeyValueStore<String, String>? {
+    val kafkaStreams = streamsBuilderFactoryBean.kafkaStreams ?: return null
+    return try {
       kafkaStreams.store(
         StoreQueryParameters.fromNameAndType(
           "last-hvac-store",
@@ -63,10 +77,11 @@ class StateQueryController(
     } catch (_: Exception) {
       null
     }
+  }
 }
 
 data class LastHvacResponse(
   val roomId: String,
-  val action: String?,
+  val action: StreamOutputAction?,
   val reason: String?,
 )

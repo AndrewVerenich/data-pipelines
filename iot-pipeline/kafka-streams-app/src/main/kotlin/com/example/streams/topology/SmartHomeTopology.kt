@@ -3,14 +3,22 @@ package com.example.streams.topology
 import com.example.streams.cdc.RoomConfigCdcParser
 import com.example.streams.model.*
 import com.example.streams.serde.jacksonSerde
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.example.streams.enums.AlertSeverity
+import com.example.streams.enums.DoorWindowState
+import com.example.streams.enums.HvacMode
+import com.example.streams.enums.LightingMode
+import com.example.streams.enums.SecurityAlertType
+import com.example.streams.enums.SecurityMode
+import com.example.streams.enums.StreamOutputAction
 import org.apache.kafka.common.serialization.Serdes
 import org.apache.kafka.streams.KeyValue
 import org.apache.kafka.streams.StreamsBuilder
 import org.apache.kafka.streams.kstream.*
 import java.time.Duration
 import java.time.Instant
-import java.util.*
+import java.util.Locale
 
 object SmartHomeTopology {
 
@@ -34,7 +42,7 @@ object SmartHomeTopology {
       .selectKey { _, c -> c.roomId }
       .toTable(Materialized.with(stringSerde, roomSerde))
 
-    val tempStream = builder
+    val temperatureStream = builder
       .stream("sensor.temperature", Consumed.with(stringSerde, stringSerde))
       .mapValues { j ->
         try {
@@ -47,7 +55,7 @@ object SmartHomeTopology {
       .mapValues { _, v -> v!! }
       .selectKey { _, v -> v.roomId }
 
-    val windowedClimate = tempStream
+    val windowedClimate = temperatureStream
       .groupByKey(Grouped.with(stringSerde, tempSerde))
       .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofSeconds(30)))
       .aggregate(
@@ -64,11 +72,11 @@ object SmartHomeTopology {
       .toStream()
       .map { wk, agg ->
         val roomId = wk.key()
-        val payload = mapOf(
-          "roomId" to roomId,
-          "avg_temp" to agg.avg(),
-          "window_start_ms" to wk.window().start(),
-          "window_end_ms" to wk.window().end(),
+        val payload = ClimateWindowAverage(
+          roomId = roomId,
+          avgTemp = agg.avg(),
+          windowStartMs = wk.window().start(),
+          windowEndMs = wk.window().end(),
         )
         KeyValue.pair(roomId, mapper.writeValueAsString(payload))
       }
@@ -80,22 +88,21 @@ object SmartHomeTopology {
           if (avgJson == null || cfg == null) {
             null
           } else {
-            val node = mapper.readTree(avgJson)
-            val avgTemp = node.get("avg_temp").asDouble()
-            val action = decideHvac(avgTemp, cfg)
+            val windowAvg = mapper.readValue(avgJson, ClimateWindowAverage::class.java)
+            val action = decideHvac(windowAvg.avgTemp, cfg)
             val reason = String.format(
               Locale.US,
               "avg=%.2f desired=%s deadband=%s",
-              avgTemp,
+              windowAvg.avgTemp,
               cfg.desiredTemperature.toString(),
               cfg.climateDeadband.toString(),
             )
             mapper.writeValueAsString(
-              mapOf(
-                "roomId" to cfg.roomId,
-                "action" to action,
-                "reason" to reason,
-                "ts" to Instant.now().toString(),
+              TopologyCommandPayload(
+                roomId = cfg.roomId,
+                action = action,
+                reason = reason,
+                ts = Instant.now().toString(),
               ),
             )
           }
@@ -113,14 +120,13 @@ object SmartHomeTopology {
           if (avgJson == null || cfg == null) {
             null
           } else {
-            val node = mapper.readTree(avgJson)
-            val avgTemp = node.get("avg_temp").asDouble()
+            val windowAvg = mapper.readValue(avgJson, ClimateWindowAverage::class.java)
             mapper.writeValueAsString(
-              mapOf(
-                "roomId" to cfg.roomId,
-                "avg_temp" to avgTemp,
-                "desired_temperature" to cfg.desiredTemperature,
-                "ts" to Instant.now().toString(),
+              ClimateAnalyticsPayload(
+                roomId = cfg.roomId,
+                avgTemp = windowAvg.avgTemp,
+                desiredTemperature = cfg.desiredTemperature,
+                ts = Instant.now().toString(),
               ),
             )
           }
@@ -184,18 +190,18 @@ object SmartHomeTopology {
     val lightingOn = lightingOnCtx
       .filter { _: String, ctx: LightingOnCtx ->
         val cfg = ctx.cfg
-        cfg.lightingMode.lowercase(Locale.getDefault()) == "auto" &&
+        cfg.lightingMode == LightingMode.AUTO &&
           ctx.motion.detected &&
           ctx.lux.lux < cfg.luxOnThreshold
       }
       .mapValues { _: String, ctx: LightingOnCtx ->
         val cfg = ctx.cfg
         mapper.writeValueAsString(
-          mapOf(
-            "roomId" to cfg.roomId,
-            "action" to "LIGHTS_ON",
-            "reason" to "motion_and_lux_below_${cfg.luxOnThreshold}",
-            "ts" to Instant.now().toString(),
+          TopologyCommandPayload(
+            roomId = cfg.roomId,
+            action = StreamOutputAction.LIGHTS_ON,
+            reason = "motion_and_lux_below_${cfg.luxOnThreshold}",
+            ts = Instant.now().toString(),
           ),
         )
       }
@@ -210,17 +216,17 @@ object SmartHomeTopology {
       )
       .filter { _: String, lc: LuxAndConfig ->
         val cfg = lc.cfg
-        cfg.lightingMode.lowercase(Locale.getDefault()) == "auto" &&
+        cfg.lightingMode == LightingMode.AUTO &&
           lc.lux.lux > cfg.luxOffThreshold
       }
       .mapValues { _: String, lc: LuxAndConfig ->
         val cfg = lc.cfg
         mapper.writeValueAsString(
-          mapOf(
-            "roomId" to cfg.roomId,
-            "action" to "LIGHTS_OFF",
-            "reason" to "lux_above_${cfg.luxOffThreshold}",
-            "ts" to Instant.now().toString(),
+          TopologyCommandPayload(
+            roomId = cfg.roomId,
+            action = StreamOutputAction.LIGHTS_OFF,
+            reason = "lux_above_${cfg.luxOffThreshold}",
+            ts = Instant.now().toString(),
           ),
         )
       }
@@ -247,17 +253,17 @@ object SmartHomeTopology {
         Joined.with(stringSerde, doorSerde, roomSerde),
       )
       .filter { _: String, dc: DoorAndConfig ->
-        dc.cfg.securityMode.lowercase(Locale.getDefault()) == "armed" &&
-          dc.door.state.uppercase(Locale.getDefault()) == "OPEN"
+        dc.cfg.securityMode == SecurityMode.ARMED &&
+          dc.door.state == DoorWindowState.OPEN
       }
       .map { _: String, dc: DoorAndConfig ->
         val cfg = dc.cfg
-        val payload = mapOf(
-          "roomId" to cfg.roomId,
-          "type" to "INTRUSION",
-          "severity" to "HIGH",
-          "detail" to "Door or window open while armed",
-          "ts" to Instant.now().toString(),
+        val payload = SecurityAlertPayload(
+          roomId = cfg.roomId,
+          type = SecurityAlertType.INTRUSION,
+          severity = AlertSeverity.HIGH,
+          detail = "Door or window open while armed",
+          ts = Instant.now().toString(),
         )
         KeyValue.pair(cfg.roomId, mapper.writeValueAsString(payload))
       }
@@ -269,16 +275,16 @@ object SmartHomeTopology {
         Joined.with(stringSerde, motionSerde, roomSerde),
       )
       .filter { _: String, mc: MotionAndConfig ->
-        mc.cfg.securityMode.lowercase(Locale.getDefault()) == "armed" && mc.motion.detected
+        mc.cfg.securityMode == SecurityMode.ARMED && mc.motion.detected
       }
       .map { _: String, mc: MotionAndConfig ->
         val cfg = mc.cfg
-        val payload = mapOf(
-          "roomId" to cfg.roomId,
-          "type" to "MOTION_WHILE_ARMED",
-          "severity" to "MEDIUM",
-          "detail" to "Motion while armed",
-          "ts" to Instant.now().toString(),
+        val payload = SecurityAlertPayload(
+          roomId = cfg.roomId,
+          type = SecurityAlertType.MOTION_WHILE_ARMED,
+          severity = AlertSeverity.MEDIUM,
+          detail = "Motion while armed",
+          ts = Instant.now().toString(),
         )
         KeyValue.pair(mc.motion.roomId, mapper.writeValueAsString(payload))
       }
@@ -286,29 +292,50 @@ object SmartHomeTopology {
     doorAlerts.merge(motAlerts).to("alert.security", Produced.with(stringSerde, stringSerde))
   }
 
-  private fun decideHvac(avgTemp: Double, cfg: RoomConfig): String {
+  private fun decideHvac(avgTemp: Double, cfg: RoomConfig): StreamOutputAction {
     val d = cfg.desiredTemperature
     val b = cfg.climateDeadband
-    return when (cfg.hvacMode.lowercase(Locale.getDefault())) {
-      "off" -> "IDLE"
-      "heat" ->
-        if (avgTemp < d - b) {
-          "HEAT"
-        } else {
-          "IDLE"
-        }
-      "cool" ->
-        if (avgTemp > d + b) {
-          "COOL"
-        } else {
-          "IDLE"
-        }
-      else ->
+    return when (cfg.hvacMode) {
+      HvacMode.OFF -> StreamOutputAction.IDLE
+      HvacMode.HEAT ->
+        if (avgTemp < d - b) StreamOutputAction.HEAT else StreamOutputAction.IDLE
+      HvacMode.COOL ->
+        if (avgTemp > d + b) StreamOutputAction.COOL else StreamOutputAction.IDLE
+      HvacMode.AUTO ->
         when {
-          avgTemp < d - b -> "HEAT"
-          avgTemp > d + b -> "COOL"
-          else -> "IDLE"
+          avgTemp < d - b -> StreamOutputAction.HEAT
+          avgTemp > d + b -> StreamOutputAction.COOL
+          else -> StreamOutputAction.IDLE
         }
     }
   }
 }
+
+data class ClimateWindowAverage(
+  val roomId: String,
+  @JsonProperty("avg_temp") val avgTemp: Double,
+  @JsonProperty("window_start_ms") val windowStartMs: Long,
+  @JsonProperty("window_end_ms") val windowEndMs: Long,
+)
+
+data class TopologyCommandPayload(
+  val roomId: String,
+  val action: StreamOutputAction,
+  val reason: String,
+  val ts: String,
+)
+
+data class ClimateAnalyticsPayload(
+  val roomId: String,
+  @JsonProperty("avg_temp") val avgTemp: Double,
+  @JsonProperty("desired_temperature") val desiredTemperature: Double,
+  val ts: String,
+)
+
+data class SecurityAlertPayload(
+  val roomId: String,
+  val type: SecurityAlertType,
+  val severity: AlertSeverity,
+  val detail: String,
+  val ts: String,
+)
