@@ -5,7 +5,7 @@
 Здесь намеренно сочетаются **разные архитектурные акценты**:
 - **Lakehouse / ELT** ([Fintech](./fintech-lakehouse-analytics/README.md)): CDC из OLTP, колоночное хранилище, **dbt**-слои и витрины, **Airflow**, **Superset**.
 - **Real-time DWH из Kafka** ([Marketing](./marketing-analytics-platform/README.md)): события в Kafka, ClickHouse, star schema и предагрегации, Superset.
-- **Smart Home IoT** ([IoT](./iot-pipeline/README.md)): симулятор датчиков/актуаторов, Debezium CDC конфигурации, Kafka Streams (климат, свет, охрана), ClickHouse, Grafana.
+- **Smart Home IoT** ([IoT](./iot-pipeline/README.md)): Kotlin-симулятор (физика комнат, REST-конфиг в Postgres), Debezium CDC в Kafka Streams (KTable), топологии климат / освещение / охрана, **Kafka → ClickHouse → Grafana** (в т.ч. HVAC и lighting commands).
 - **Классический batch** ([Ecommerce](./ecommerce-batch-pipeline/README.md)): HDFS, Spark, Livy, Airflow, PostgreSQL, Superset.
 - **Стриминговая обработка** ([User Behaviour](./user-behaviour-pipeline/README.md)): Flink, ClickHouse, Grafana.
 
@@ -57,18 +57,20 @@ Production-like **ELT lakehouse** для финтех-домена: CDC семи
 
 ---
 
-### 📊 [IoT Real-Time Analytics Pipeline](./iot-pipeline/README.md)
+### 🏠 [Smart Home IoT Pipeline](./iot-pipeline/README.md)
 
-**Стек:** PostgreSQL • Debezium • Apache Kafka • Kafka Streams • ClickHouse • Grafana
+**Стек:** Kotlin / Spring Boot • PostgreSQL • Debezium • Apache Kafka • Kafka Streams • ClickHouse • Grafana
 
-Комплексный пайплайн для real-time обработки IoT данных с визуализацией метрик.
+Потоковый контур **умного дома**: замкнутая петля «стримы → команды HVAC/света → физика комнаты → новые датчики»; 
+конфигурация комнат — **SSOT в Postgres** с **CDC** в **KTable** стримов; выбранные топики пишутся в **ClickHouse** 
+(Kafka Engine + MV) и отображаются на дашборде **Grafana**. JVM-сервисы собираются **локально** (`bootJar`), Docker копирует готовые JAR.
 
 **Ключевые возможности:**
-- ✅ CDC с PostgreSQL через Debezium (WAL-based)
-- ✅ Stream processing на Kafka Streams
-- ✅ Columnar storage в ClickHouse для аналитики
-- ✅ Real-time визуализация в Grafana
-- ✅ Автоматическая агрегация по временным окнам
+- ✅ Симулятор: датчики (температура, влажность, движение, lux, дверь/окно), актуаторы `command.hvac` / `command.lighting`, REST `GET`/`PATCH /api/rooms`
+- ✅ Kafka Streams: окна и suppress для климата, join KStream × KTable, освещение (motion × lux), merge тревог 
+- ✅ Interactive Queries (REST) по последнему состоянию HVAC
+- ✅ ClickHouse: MergeTree-витрины для температуры, влажности, команд HVAC и **освещения**, аналитики климата, охраны
+- ✅ Grafana 10: дашборд с time series и таблицей алертов
 
 ---
 
