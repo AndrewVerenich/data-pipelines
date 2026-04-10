@@ -1,6 +1,6 @@
 {
   "uid": "smart-home-main",
-  "title": "Smart Home — climate and HVAC",
+  "title": "Smart Home — climate, HVAC, lighting",
   "tags": ["iot", "smart-home"],
   "timezone": "browser",
   "refresh": "10s",
@@ -48,10 +48,23 @@
       }]
     },
     {
+      "id": 6,
+      "title": "Lighting commands",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 17 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
+        "rawQuery": true,
+        "rawSql": "SELECT event_time AS time, room_id, action AS metric, 1 AS value FROM commands_lighting WHERE event_time > now() - INTERVAL 6 HOUR ORDER BY event_time",
+        "refId": "A"
+      }]
+    },
+    {
       "id": 4,
       "title": "Climate analytics — avg vs desired",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 17 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 25 },
       "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
       "targets": [
         {
@@ -73,7 +86,7 @@
       "id": 5,
       "title": "Security alerts",
       "type": "table",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 25 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 33 },
       "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },
       "targets": [{
         "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-iot" },

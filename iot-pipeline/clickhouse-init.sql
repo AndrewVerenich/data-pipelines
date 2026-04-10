@@ -75,6 +75,34 @@ SELECT
     parseDateTimeBestEffortOrNull(ts) AS event_time
 FROM commands_hvac_kafka;
 
+CREATE TABLE IF NOT EXISTS commands_lighting_kafka (
+    roomId String,
+    action String,
+    reason String,
+    ts String
+) ENGINE = Kafka
+SETTINGS kafka_broker_list = 'kafka:9092',
+         kafka_topic_list = 'command.lighting',
+         kafka_group_name = 'clickhouse-lighting-cmd',
+         kafka_format = 'JSONEachRow',
+         kafka_num_consumers = 1;
+
+CREATE TABLE IF NOT EXISTS commands_lighting (
+    room_id String,
+    action String,
+    reason String,
+    event_time DateTime
+) ENGINE = MergeTree()
+ORDER BY (room_id, event_time);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS commands_lighting_mv TO commands_lighting AS
+SELECT
+    roomId AS room_id,
+    action,
+    reason,
+    parseDateTimeBestEffortOrNull(ts) AS event_time
+FROM commands_lighting_kafka;
+
 CREATE TABLE IF NOT EXISTS analytics_climate_kafka (
     roomId String,
     avg_temp Float64,
