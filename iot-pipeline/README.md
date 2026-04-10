@@ -1,5 +1,7 @@
 # Smart Home IoT Pipeline
 
+Демо-пайплайн **потоковой аналитики для умного дома**: `PostgreSQL (конфиг) → Debezium → Kafka → Kafka Streams → Kafka (команды / аналитика / алерты)` с **петлей симуляции** (команды меняют физику комнаты и новые показания снова в Kafka) и витриной **`Kafka → ClickHouse → Grafana`** для операционных дашбордов.
+
 **Схема:**
 
 ```mermaid
@@ -30,7 +32,7 @@ flowchart TB
   end
 
   subgraph equipment ["Equipment"]
-    HVAC["HVAC<br/>(heat / cool)"]
+    HVAC["HVAC"]
     LTS["Lighting"]
   end
 
@@ -60,33 +62,36 @@ flowchart TB
 
   T -->|sensor.temperature| KE
   TOP -->|command.hvac| KE
+  TOP -->|command.lighting| KE
   KE --> MV --> MT --> GF
 ```
 
-Потоковый контур **умного дома**: датчики (симулятор) публикуют в Kafka, **Kafka Streams** решает климат, освещение и охрану, команды уходят на **оборудование**; конфигурация комнат живёт в **PostgreSQL** и попадает в стримы через **Debezium** → **KTable**. Выбранные топики пишутся в **ClickHouse** для **Grafana**. На схеме нет блока симулятора физики: замыкание петли «команды → состояние комнаты → показания» выполняется внутри smart-home-сервиса.
+End-to-end контур **умного дома**: симулятор публикует датчики в Kafka, **Kafka Streams** рассчитывает климат, освещение и охрану на фоне **KTable** из CDC; команды уходят в «оборудование» внутри симулятора (замкнутая петля физики). Конфигурация комнат — **PostgreSQL** → **Debezium** → `iot.public.room_config`. Для наблюдаемости выбранные топики принимаются в **ClickHouse** (Kafka Engine + MV) и визуализируются в **Grafana**.
 
 **Ключевые возможности:**
-- ✅ Замкнутый контур в симуляторе: стримы → команды → физика комнаты → снова датчики (на диаграмме — поток данных)
-- ✅ CDC конфигурации (`room_config`) без опроса БД из стримов; join KStream × KTable
-- ✅ Оконная агрегация климата (30 с, suppress), отдельные топологии света и охраны
-- ✅ ClickHouse: Kafka Engine + MergeTree + MV для температуры, HVAC, аналитики, тревог
-- ✅ REST на симуляторе (пользовательский конфиг) и REST на стримах (IQ по последнему HVAC)
-- ✅ Docker Compose: топики, коннектор, ожидание `iot.public.room_config`, healthchecks
+- ✅ Замкнутый контур: стримы → команды → физика комнаты → новые показания датчиков
+- ✅ CDC `room_config` без опроса БД из стримов; join KStream × KTable
+- ✅ Климат: tumbling 30 с + suppress, HVAC, ветка `analytics.climate`
+- ✅ Освещение: motion × lux × конфиг → `command.lighting`
+- ✅ Охрана: дверь/окно и движение → merge в `alert.security`
+- ✅ ClickHouse: Kafka Engine + MergeTree + MV для температуры, влажности, HVAC, **освещения**, аналитики климата, тревог
+- ✅ REST: симулятор `/api/rooms`, стримы IQ `/api/state/...`
+- ✅ Docker Compose: топики, коннектор, ожидание CDC-топика, healthchecks
 
 ---
 
 ## 🛠 Технологический стек
 
 | Компонент | Технология | Описание |
-|-----------|------------|----------|
-| **Язык / runtime** | Kotlin 1.9 + Spring Boot 3.1 | Симулятор и приложение Kafka Streams |
-| **Брокер сообщений** | Apache Kafka (Confluent 7.5) | События датчиков, команды, CDC |
-| **OLTP конфигурации** | PostgreSQL 15 | `wal_level=logical`, таблица `room_config` |
+|-----------|-----------|----------|
+| **Язык / runtime** | Kotlin 1.9 + Spring Boot 3.1 | Симулятор и Kafka Streams |
+| **Брокер сообщений** | Apache Kafka (Confluent 7.5) | Датчики, команды, CDC |
+| **OLTP конфигурации** | PostgreSQL 15 | `wal_level=logical`, `room_config` |
 | **CDC** | Debezium 2.5 | Топик `iot.public.room_config` |
-| **Stream processing** | Kafka Streams | Окна, join, merge алертов, state store для IQ |
-| **OLAP** | ClickHouse 23.8 | Колоночное хранилище, приём из Kafka |
-| **BI** | Grafana 10.2 | Провиженинг дашборда и datasource |
-| **Инфраструктура** | Docker Compose | Сборка JVM-образов из корня монорепозитория |
+| **Stream processing** | Apache Kafka Streams | Окна, join, state store для IQ |
+| **OLAP** | ClickHouse 23.8 | Kafka Engine → MergeTree |
+| **BI** | Grafana 10.2 | Провиженинг datasource и дашборда |
+| **Инфраструктура** | Docker Compose | Сервисы в `iot-pipeline/`; build context — корень монорепо |
 
 ---
 
@@ -94,19 +99,19 @@ flowchart TB
 
 - **Docker** 20.10+
 - **Docker Compose** 2.0+
-- **JDK 17+** (сборка JAR локально перед `docker compose build` для JVM-сервисов)
+- **JDK 17+** (локальная сборка `bootJar` для образов JVM)
 
 ---
 
 ## 🚀 Быстрый старт
 
-1. Собери JAR локально (из корня `data-pipelines/`): образы JVM сервисов **не** собирают Gradle внутри Docker, а копируют `build/libs/*.jar`.
+1. Соберите JAR из корня монорепозитория `data-pipelines/` (образы **не** запускают Gradle внутри Docker):
 
 ```bash
 ./gradlew :iot-pipeline:smart-home-simulator:bootJar :iot-pipeline:kafka-streams-app:bootJar
 ```
 
-2. Запуск из каталога **`iot-pipeline/`** (контекст Docker — корень `data-pipelines/`):
+2. Запустите стек (контекст Docker — корень репо):
 
 ```bash
 cd iot-pipeline
@@ -114,40 +119,31 @@ docker compose up -d --build
 ```
 
 **Что происходит по шагам:**
-1. Поднимаются Zookeeper и Kafka, создаются прикладные топики (`scripts/kafka-init-topics.sh`).
-2. Инициализируется Postgres (`postgres/init.sql`) и Debezium (`init-debezium.sh`).
-3. Ожидается появление топика `iot.public.room_config` (`wait-for-debezium-topic.sh`).
-4. Стартуют ClickHouse с `clickhouse-init.sql`, **smart-home-simulator**, **kafka-streams-app**, Grafana.
+1. Zookeeper и Kafka; прикладные топики (`scripts/kafka-init-topics.sh`).
+2. Postgres (`postgres/init.sql`) и регистрация коннектора (`init-debezium.sh`).
+3. Ожидание топика `iot.public.room_config` (`scripts/wait-for-debezium-topic.sh`).
+4. ClickHouse (`clickhouse-init.sql`), **smart-home-simulator**, **kafka-streams-app**, Grafana.
 
-Подождите **1–3 минуты** до стабильных кривых в Grafana.
-
-Остановка сервисов:
+**Остановка:**
 
 ```bash
-# Остановка с сохранением данных
-docker-compose stop
-
-# Остановка с удалением контейнеров (данные в volumes сохраняются)
-docker-compose down
-
-# Полное удаление включая volumes (⚠️ удалит все данные)
-docker-compose down -v
+docker compose down -v
 ```
-
-После смены схемы Postgres при уже существующем volume выполните `docker-compose down -v` и поднимите стек снова.
 
 ---
 
 ## 🌐 URL сервисов
 
+После `docker compose up -d --build` интерфейсы доступны локально:
+
 | Сервис | URL | Credentials | Описание |
 |--------|-----|-------------|----------|
-| **Grafana** | http://localhost:3000 | admin / admin | Дашборд «Smart Home — climate and HVAC» |
-| **ClickHouse HTTP** | http://localhost:8123 | admin / admin123 | HTTP-интерфейс |
+| **Grafana** | http://localhost:3000 | admin / admin | Дашборд «Smart Home — climate, HVAC, lighting» |
+| **ClickHouse HTTP** | http://localhost:8123 | admin / admin123 | HTTP |
 | **ClickHouse TCP** | localhost:9000 | admin / admin123 | Нативный клиент |
-| **Kafka UI** | http://localhost:8080 | — | Обзор топиков и сообщений |
-| **Debezium** | http://localhost:8083 | — | REST API Connect |
-| **Симулятор (конфиг)** | http://localhost:8085 | — | `GET`/`PATCH /api/rooms` |
+| **Kafka UI** | http://localhost:8080 | — | Топики и сообщения |
+| **Debezium** | http://localhost:8083 | — | REST Connect |
+| **Симулятор** | http://localhost:8085 | — | `GET` / `PATCH /api/rooms` |
 | **Kafka Streams (IQ)** | http://localhost:8086 | — | `GET /api/state/rooms/...` |
 
 ---
@@ -158,27 +154,30 @@ docker-compose down -v
 iot-pipeline/
 ├── docker-compose.yml
 ├── README.md
+├── docs/
+│   ├── grafana_1.png              # Скриншот Grafana (климат, влажность, HVAC)
+│   └── grafana_2.png              # Скриншот Grafana (освещение, аналитика, охрана)
 ├── postgres/
-│   └── init.sql                    # room_config + seed (living-room, bedroom, kitchen)
+│   └── init.sql                   # room_config + seed
 ├── scripts/
-│   ├── kafka-init-topics.sh        # Создание sensor.*, command.*, alert.*, analytics.*
-│   └── wait-for-debezium-topic.sh  # Гейт до появления iot.public.room_config
-├── init-debezium.sh                # Регистрация Postgres-коннектора (room_config)
+│   ├── kafka-init-topics.sh
+│   └── wait-for-debezium-topic.sh
+├── init-debezium.sh
 ├── clickhouse-init.sql             # Kafka Engine + MergeTree + MV
 ├── smart-home-simulator/
-│   ├── Dockerfile                  # eclipse-temurin: копирует предсобранный bootJar
+│   ├── Dockerfile
 │   ├── build.gradle.kts
 │   └── src/main/kotlin/com/smarthome/simulator/
 │       ├── SmartHomeSimulatorApplication.kt
-│       ├── physics/                # RoomPhysicsEngine, DefaultRoomPhysicsEngine, RoomState, HvacAction
-│       ├── sensor/                 # SensorScheduler → Kafka
+│       ├── physics/
+│       ├── sensor/
 │       ├── actuator/               # command.hvac, command.lighting
-│       ├── api/                    # RoomConfigController
-│       ├── entity/ · repo/         # JPA room_config
-│       ├── config/                 # SmarthomeProperties
-│       └── model/                  # DTO для Kafka
+│       ├── api/
+│       ├── entity/ · repo/
+│       ├── config/
+│       └── model/
 ├── kafka-streams-app/
-│   ├── Dockerfile                  # eclipse-temurin: копирует предсобранный bootJar
+│   ├── Dockerfile
 │   ├── build.gradle.kts
 │   └── src/main/kotlin/com/example/streams/
 │       ├── KafkaStreamsApplication.kt
@@ -186,11 +185,11 @@ iot-pipeline/
 │       ├── stream/KafkaStreamsConfig.kt
 │       ├── cdc/RoomConfigCdcParser.kt
 │       ├── model/Domain.kt
-│       ├── enums/WireEnums.kt     # Режимы / команды / тревоги (только Kafka Streams)
+│       ├── enums/WireEnums.kt
 │       ├── serde/JacksonSerde.kt
 │       └── api/StateQueryController.kt
 └── grafana/provisioning/
-    ├── datasources/clickhouse.yaml # uid: clickhouse-iot
+    ├── datasources/clickhouse.yaml
     └── dashboards/
         ├── dashboard.yaml
         └── smart-home.json
@@ -202,35 +201,44 @@ Gradle-модули в корне: `:iot-pipeline:smart-home-simulator`, `:iot-p
 
 ## 🔄 Kafka → ClickHouse (ingestion)
 
-Для наблюдаемости часть топиков продолжает путь в OLAP по знакомому паттерну:
+Паттерн как в других проектах репозитория:
 
 ```
 Kafka Topic ──► Kafka Engine Table ──► Materialized View ──► MergeTree
 ```
 
-Таблицы `*_kafka` читают батчи из Kafka; MV парсят `JSONEachRow`, нормализуют время и пишут в `MergeTree` для запросов Grafana. Симулятор и стримы сериализуют поля в виде, совместимом с этими MV.
+Таблицы `*_kafka` — виртуальные consumers; MV читают батчи, парсят **JSONEachRow** (`roomId`, `ts`, …), нормализуют время и пишут в **MergeTree** для Grafana. В демо **не** дублируется полный Debezium Envelope в OLAP — только прикладные топики.
 
-Отдельно **не** дублируется весь CDC Envelope в ClickHouse: в аналитику попадают прикладные топики (`sensor.temperature`, `command.hvac`, `analytics.climate`, `alert.security` и т.д.).
+| MergeTree-таблица | Источник (топик) | Назначение |
+|-------------------|------------------|------------|
+| `sensor_temperature` | `sensor.temperature` | Температура по комнатам |
+| `sensor_humidity` | `sensor.humidity` | Влажность |
+| `commands_hvac` | `command.hvac` | Команды HVAC |
+| `commands_lighting` | `command.lighting` | Команды освещения |
+| `analytics_climate` | `analytics.climate` | Средняя t° и setpoint |
+| `alerts_security` | `alert.security` | Тревоги охраны |
 
 ---
 
-## ⚙️ Kafka Streams (кратко)
+## ⚙️ Kafka Streams (топологии)
 
-| Топология | Идея |
-|-----------|------|
-| **Climate** | Tumbling 30 с + suppress → средняя t°; leftJoin с KTable из `iot.public.room_config`; команды `HEAT`/`COOL`/`IDLE` в `command.hvac`; ветка в `analytics.climate` |
-| **Lighting** | Motion × последняя освещённость (KTable) × конфиг → `LIGHTS_ON`; по освещённости выше порога → `LIGHTS_OFF` |
-| **Security** | Дверь/окно и движение join с конфигом; при `armed` — merge в `alert.security` |
-| **IQ** | `hvacJsonStream.toTable` → store `last-hvac-store` → `GET /api/state/...` |
+| Блок | Логика |
+|------|--------|
+| **Climate** | Окно 30 с + suppress → средняя температура; join с KTable конфигурации; `HEAT` / `COOL` / `IDLE` → `command.hvac`; срез → `analytics.climate` |
+| **Lighting** | Motion × последний lux (KTable) × конфиг → `LIGHTS_ON`; lux выше порога → `LIGHTS_OFF` → `command.lighting` |
+| **Security** | Дверь/окно и движение + конфиг; при `armed` → merge → `alert.security` |
+| **IQ** | `toTable` → store `last-hvac-store` → REST |
 
-Обработка в демо: `at_least_once`. Ключ записи Kafka — идентификатор комнаты (строка); в JSON теле симулятора и стримов поле **`roomId`** (camelCase).
+Семантика: **at least once**. Ключ в Kafka — `roomId` комнаты; в JSON поле **`roomId`** (camelCase).
+
+**Образ JVM:** базовый слой `eclipse-temurin:17-jre-alpine` дополнен пакетом `libstdc++` (нативный RocksDB в state store).
 
 ---
 
 ## 🎯 Симулятор и REST
 
-- **Физика:** тик обновляет температуру, влажность, условную освещённость; HVAC и свет меняют траекторию.
-- **Конфиг:** `PATCH /api/rooms/{roomId}` обновляет Postgres → CDC → стримы подхватывают новые пороги и режимы.
+- **Физика:** пересчёт температуры, влажности, условной освещённости; реакция на HVAC и свет.
+- **Конфиг:** `PATCH /api/rooms/{roomId}` обновляет Postgres → CDC → обновление KTable в стримах.
 
 Примеры:
 
@@ -244,7 +252,7 @@ curl -s -X PATCH http://localhost:8085/api/rooms/living-room \
 
 Допустимые значения: `hvac_mode` — `auto` | `heat` | `cool` | `off`; `security_mode` — `armed` | `disarmed` | `night`; `lighting_mode` — `auto` | `manual` | `off`.
 
-Последнее решение регулятора (не путать с конфигом из Postgres):
+IQ (последнее решение регулятора HVAC):
 
 ```bash
 curl -s http://localhost:8086/api/state/rooms/living-room/hvac | jq .
@@ -253,27 +261,47 @@ curl -s http://localhost:8086/api/state/rooms | jq .
 
 ---
 
-## 📊 Grafana
+## 📊 Grafana Dashboard
 
-Провиженинг поднимает дашборд **«Smart Home — climate and HVAC»** (ClickHouse datasource `clickhouse-iot`).
+При старте Grafana подхватывает файловый провиженинг (`grafana/provisioning/`): datasource **ClickHouse** и дашборд **«Smart Home — climate, HVAC, lighting»** (uid `smart-home-main`, datasource uid `clickhouse-iot`). Запросы — **raw SQL** к MergeTree-таблицам.
 
-| Панель | Содержание |
-|--------|------------|
-| Temperature by room | Временной ряд `sensor.temperature` |
-| Humidity by room | `sensor.humidity` |
-| HVAC commands | События из `commands_hvac` |
-| Climate analytics | `avg_temp` и `desired_temperature` из `analytics_climate` |
-| Security alerts | Таблица `alerts_security` |
+| № | Панель | Тип | Таблица (ClickHouse) | Что показывает |
+|---|--------|-----|----------------------|----------------|
+| 1 | Temperature by room | Time series | `sensor_temperature` | Температура по комнатам |
+| 2 | Humidity by room | Time series | `sensor_humidity` | Влажность |
+| 3 | HVAC commands | Time series | `commands_hvac` | События `HEAT` / `COOL` / `IDLE` |
+| 4 | Lighting commands | Time series | `commands_lighting` | `LIGHTS_ON` / `LIGHTS_OFF` |
+| 5 | Climate analytics — avg vs desired | Time series | `analytics_climate` | Средняя t° и целевая |
+| 6 | Security alerts | Table | `alerts_security` | Последние тревоги охраны |
+
+Скриншоты дашборда (лежат в `iot-pipeline/docs/`):
+
+![Grafana: температура, влажность, команды HVAC](docs/grafana_1.png)
+
+
+![Grafana: освещение, аналитика климата, охрана](docs/grafana_2.png)
 
 ---
 
-## 📨 Топики Kafka (основные)
+## 📨 Основные топики Kafka
 
 | Топик | Назначение |
 |-------|------------|
 | `sensor.temperature`, `sensor.humidity`, `sensor.motion`, `sensor.light-level`, `sensor.door-window` | Показания симулятора |
-| `iot.public.room_config` | CDC конфигурации (Debezium JSON Envelope) |
-| `command.hvac`, `command.lighting` | Команды актуаторам |
-| `analytics.climate` | Срез средней t° и setpoint для BI |
-| `alert.security` | Тревоги охраны |
+| `iot.public.room_config` | CDC конфигурации |
+| `command.hvac`, `command.lighting` | Команды «актуаторам» |
+| `analytics.climate` | Сниппет для BI |
+| `alert.security` | Тревоги |
 
+Топик `alert.device-health` создаётся скриптом инициализации; продюсер в демо не подключён.
+
+---
+
+## ✅ Чеклист
+
+- [x] CDC Postgres → Debezium → Kafka Streams KTable
+- [x] Топологии климат / освещение / охрана
+- [x] ClickHouse ingestion для наблюдаемых топиков (включая освещение)
+- [x] Grafana: провиженинг дашборда и datasource
+- [x] Docker Compose с healthchecks и гейтами по топикам
+- [x] JVM-образы из предсобранных JAR; зависимости RocksDB в Alpine
