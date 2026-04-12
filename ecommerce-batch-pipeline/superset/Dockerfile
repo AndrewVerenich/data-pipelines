@@ -1,10 +1,16 @@
-FROM apache/superset:GHA-dev-19587880371
+FROM apache/superset:3.1.0
 
 USER root
 
-# Восстанавливаем pip внутри venv и ставим psycopg2-binary
-RUN /app/.venv/bin/python -m ensurepip && \
-    /app/.venv/bin/python -m pip install --upgrade pip && \
-    /app/.venv/bin/python -m pip install psycopg2-binary clickhouse-connect
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir "clickhouse-connect<0.8"
+
+COPY docker-entrypoint.sh /superset/docker-entrypoint.sh
+COPY superset_init.sh /superset/superset_init.sh
+COPY superset_config.py /superset/superset_config.py
+
+RUN chmod +x /superset/docker-entrypoint.sh /superset/superset_init.sh && \
+    chown superset:superset /superset/docker-entrypoint.sh /superset/superset_init.sh /superset/superset_config.py
 
 USER superset

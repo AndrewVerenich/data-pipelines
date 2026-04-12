@@ -256,6 +256,7 @@ services:
       - "8088:8088"
     volumes:
       - ./superset:/superset
+      - superset_home:/app/superset_home
     command: >
       bash -c "/superset/docker-entrypoint.sh"
     networks:
