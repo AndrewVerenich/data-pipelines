@@ -48,18 +48,23 @@ public final class EcommerceSparkPipeline {
             .getOrCreate();
 
     try {
-      if ("all".equals(step)) {
-        runBronze(spark, batchId);
-        runSilver(spark, batchId);
-        runLoadCh(spark, batchId);
-      } else if ("bronze".equals(step)) {
-        runBronze(spark, batchId);
-      } else if ("silver".equals(step)) {
-        runSilver(spark, batchId);
-      } else if ("load_ch".equals(step)) {
-        runLoadCh(spark, batchId);
-      } else {
-        throw new IllegalArgumentException("Unknown --step: " + step);
+      switch (step) {
+        case "all":
+          runBronze(spark, batchId);
+          runSilver(spark, batchId);
+          runLoadCh(spark, batchId);
+          break;
+        case "bronze":
+          runBronze(spark, batchId);
+          break;
+        case "silver":
+          runSilver(spark, batchId);
+          break;
+        case "load_ch":
+          runLoadCh(spark, batchId);
+          break;
+        default:
+          throw new IllegalArgumentException("Unknown --step: " + step);
       }
     } finally {
       spark.stop();

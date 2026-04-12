@@ -255,4 +255,3 @@ Apache Superset (дашборд на ClickHouse):
 - Класс: `com.example.EcommerceSparkPipeline`, аргументы: `--step bronze|silver|load_ch|all`, `--batch-id <строка>`.
 - HDFS: `/raw/events`, `/raw/reference`; Parquet: `/processed/bronze/<batch>/`, `/processed/silver/<batch>/`.
 
-После правок в `dbt/` пересоберите образ: `docker compose build ecommerce-dbt`.
