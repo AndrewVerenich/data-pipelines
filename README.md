@@ -6,7 +6,7 @@
 - **Lakehouse / ELT** ([Fintech](./fintech-lakehouse-analytics/README.md)): CDC из OLTP, колоночное хранилище, **dbt**-слои и витрины, **Airflow**, **Superset**.
 - **Real-time DWH из Kafka** ([Marketing](./marketing-analytics-platform/README.md)): события в Kafka, ClickHouse, star schema и предагрегации, Superset.
 - **Smart Home IoT** ([IoT](./iot-pipeline/README.md)): Kotlin-симулятор (физика комнат, REST-конфиг в Postgres), Debezium CDC в Kafka Streams (KTable), топологии климат / освещение / охрана, **Kafka → ClickHouse → Grafana** (в т.ч. HVAC и lighting commands).
-- **Классический batch** ([Ecommerce](./ecommerce-batch-pipeline/README.md)): HDFS, Spark, Livy, Airflow, PostgreSQL, Superset.
+- **Batch DWH + ELT** ([Ecommerce](./ecommerce-batch-pipeline/README.md)): HDFS, **Spark** (bronze / silver / load в ClickHouse), **ClickHouse**, **dbt** (staging → dimensions → facts → marts, схема «звезда»), **Airflow** (Livy + dbt в Docker), **Superset** на ClickHouse.
 - **Стриминговая обработка** ([User Behaviour](./user-behaviour-pipeline/README.md)): Flink, ClickHouse, Grafana.
 
 ## 🎯 Цель проекта
@@ -74,19 +74,20 @@ Production-like **ELT lakehouse** для финтех-домена: CDC семи
 
 ---
 
-### 🛒 [Ecommerce Big Data Analytics Pipeline](./ecommerce-batch-pipeline/README.md)
+### 🛒 [Ecommerce batch DWH](./ecommerce-batch-pipeline/README.md)
 
-**Стек:** Hadoop • Spark • Livy • Airflow • PostgreSQL • Superset
+**Стек:** Hadoop HDFS • Apache Spark • Apache Livy • ClickHouse • dbt (dbt-clickhouse) • Apache Airflow • Apache Superset
 
-Комплексный пайплайн для batch‑обработки e‑commerce логов с построением аналитических дашбордов.
+Batch‑контур e‑commerce: синтетические события и справочники в **HDFS** → **Spark** (этапы `bronze` → `silver` → `load_ch`, идемпотентность по `ingest_batch_id`) → сырой слой в **ClickHouse** → **dbt** (измерения, факт кликстрима, витрины; **схема «звезда»**: `fct_events`, `dim_user`, `dim_product`) → **Airflow** (три запуска Spark через Livy, затем слои dbt и `dbt test`) → **Superset** на ClickHouse. DWH — только ClickHouse; PostgreSQL в compose используется лишь как БД метаданных Airflow (`airflow-db`).
 
 **Ключевые возможности:**
-- ✅ Хранение данных в HDFS (Hadoop NameNode + DataNodes)
-- ✅ Batch‑обработка логов в Apache Spark
-- ✅ Оркестрация ETL‑процессов через Apache Airflow
-- ✅ REST API для Spark через Apache Livy
-- ✅ Хранение результатов в PostgreSQL
-- ✅ BI‑дашборды и визуализация в Apache Superset
+- ✅ Bronze / silver на HDFS (Parquet), join к справочникам пользователей и товаров в silver
+- ✅ Загрузка raw в ClickHouse по JDBC, партиционирование по батчу для повторных прогонов
+- ✅ Многослойное моделирование в dbt: staging → intermediate → dimensions → facts → marts
+- ✅ Dimensional modeling: факт на зерно «одно событие», суррогатные ключи, демо SCD2 на seed
+- ✅ DAG `ecommerce_dwh_pipeline`: проверки, Spark ×3, dbt по тегам, тесты качества
+- ✅ Superset с подключением к ClickHouse (`clickhouse-connect`)
+- ✅ Диаграммы пайплайна и моделирования измерений в README проекта
 
 ---
 

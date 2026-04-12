@@ -1,0 +1,22 @@
+select
+    ingest_batch_id,
+    event_date,
+    event_ts,
+    minute,
+    level,
+    event,
+    user_id,
+    session_id,
+    device,
+    page,
+    error_type,
+    payment_method,
+    category,
+    product_id,
+    order_id,
+    user_country,
+    user_email,
+    product_name,
+    product_category_ref,
+    unit_price
+from {{ source('raw_ecommerce', 'raw_ecommerce_events') }}

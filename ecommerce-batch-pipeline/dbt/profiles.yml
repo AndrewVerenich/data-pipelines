@@ -1,0 +1,11 @@
+clickhouse_profile:
+  target: dev
+  outputs:
+    dev:
+      type: clickhouse
+      schema: ecommerce_dwh
+      host: clickhouse
+      port: 8123
+      user: admin
+      password: admin123
+      secure: false

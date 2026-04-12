@@ -19,10 +19,11 @@ repositories {
 dependencies {
   implementation("org.apache.spark:spark-core_2.12:3.5.0")
   implementation("org.apache.spark:spark-sql_2.12:3.5.0")
+  implementation("com.clickhouse:clickhouse-jdbc:0.6.0")
 }
 
 application {
-  mainClass.set("com.example.SimpleSparkJob")
+  mainClass.set("com.example.EcommerceSparkPipeline")
 }
 
 tasks.shadowJar {
