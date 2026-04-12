@@ -6,7 +6,7 @@
 - **Lakehouse / ELT** ([Fintech](./fintech-lakehouse-analytics/README.md)): CDC из OLTP, колоночное хранилище, **dbt**-слои и витрины, **Airflow**, **Superset**.
 - **Real-time DWH из Kafka** ([Marketing](./marketing-analytics-platform/README.md)): события в Kafka, ClickHouse, star schema и предагрегации, Superset.
 - **Smart Home IoT** ([IoT](./iot-pipeline/README.md)): Kotlin-симулятор (физика комнат, REST-конфиг в Postgres), Debezium CDC в Kafka Streams (KTable), топологии климат / освещение / охрана, **Kafka → ClickHouse → Grafana** (в т.ч. HVAC и lighting commands).
-- **Batch DWH + ELT** ([Ecommerce](./ecommerce-batch-pipeline/README.md)): HDFS, **Spark** (bronze / silver / load в ClickHouse), **ClickHouse**, **dbt** (staging → dimensions → facts → marts, схема «звезда»), **Airflow** (Livy + dbt в Docker), **Superset** на ClickHouse.
+- **Batch DWH + ELT** ([Ecommerce](./ecommerce-batch-pipeline/README.md)): **Medallion**-слои на практике — **Spark**: bronze / silver (Parquet в HDFS) → load в ClickHouse (raw); **«золото»** — **dbt** (staging → dimensions → facts → marts, схема «звезда»), **Airflow** (Livy + dbt в Docker), **Superset** на ClickHouse.
 - **Стриминговая обработка** ([User Behaviour](./user-behaviour-pipeline/README.md)): Flink, ClickHouse, Grafana.
 
 ## 🎯 Цель проекта
