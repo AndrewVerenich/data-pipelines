@@ -194,6 +194,61 @@ docker compose up -d
 
 ---
 
+## Superset: дашборд и метрики
+
+Подключение к ClickHouse создаётся скриптом [`superset/superset_init.sh`](superset/superset_init.sh): БД **`ecommerce_dwh`**, драйвер `clickhouse-connect`. Дашборд по умолчанию — **Ecommerce Analytics** (чарты появляются, если соответствующие таблицы уже заполнены пайплайном).
+
+**Источники данных (датасеты):**
+
+| Таблица | Слой | Назначение |
+|---------|------|------------|
+| `mart_daily_sessions` | витрина (dbt) | Агрегаты по календарному дню и сессии: сколько событий и сколько ошибок в каждой сессии. |
+| `mart_events_by_device` | витрина (dbt) | Агрегаты по дню, устройству и типу события. |
+| `raw_ecommerce_events` | raw (Spark → CH) | Строка на каждое сырое событие кликстрима. |
+| `fct_events` | факт (dbt) | Одна строка на событие после join к измерениям. |
+
+**Колонки витрин (для интерпретации метрик):**
+
+- **`mart_daily_sessions`:** `event_date`, `session_id`, `event_count` (число событий в сессии за день), `distinct_users`, `distinct_devices`, `error_events` (сумма индикаторов ошибок по событиям с `level = 'ERROR'` внутри сессии).
+- **`mart_events_by_device`:** `event_date`, `device`, `event`, `event_count`, `distinct_sessions`.
+
+**Чарты и метрики Superset (SQL-выражения в UI):**
+
+| Чарт | Тип | Метрики | Смысл |
+|------|-----|---------|--------|
+| Daily events (sum across sessions) | линия по времени | `sum(event_count)` → подпись **events** | По оси X — `event_date`; по Y — сумма `event_count` по всем сессиям за день, то есть **общее число событий за календарный день** (после агрегата витрины). |
+| Daily errors | линия по времени | `sum(error_events)` → **errors** | Сумма ошибок по сессиям за день — **сколько раз за день зафиксированы события с уровнем ERROR** (в пересчёте на день по всем сессиям). |
+| Sessions: events and errors | таблица | `sum(event_count)`, `sum(error_events)` | Разрез **дата + session_id**: итоговые события и ошибки по каждой сессии (при группировке строк витрины это совпадает с полями витрины). |
+| Events by device | bar chart | `sum(event_count)` → **events** | По оси категорий — `device`; высота — **сумма событий по устройству** по данным витрины (все дни в выборке). |
+| Events by type (mart) | bar chart | `sum(event_count)` → **events** | По категориям — тип события `event`; **объём событий по типу** из витрины. |
+| Event types (raw) | bar chart | `count()` → **cnt** | Число **сырых строк** по каждому значению `event` (одна строка raw = одно событие). |
+| Devices (raw) | bar chart | `count()` → **cnt** | Число **сырых событий** по каждому `device`. |
+| Fact table: events sample | таблица | `count()` → **rows** | Группировка по `event_date`, `event`, `user_id`; метрика — **число строк факта** в каждой такой группе (кардинальность комбинаций в загруженных данных). |
+
+Имена метрик в интерфейсе (**events**, **errors**, **cnt**, **rows**) — подписи из конфигурации чартов; при отсутствии таблиц после `docker compose up` перезапустите контейнер `superset` после успешного прогона DAG, либо очистите том `superset_home`, чтобы повторно выполнился bootstrap.
+
+---
+
+## Скриншоты
+
+HDFS (NameNode):
+
+![HDFS NameNode UI](docs/hdfs.png)
+
+Apache Spark (Master):
+
+![Spark Master UI](docs/spark.png)
+
+Apache Airflow:
+
+![Airflow UI](docs/airflow.png)
+
+Apache Superset (дашборд на ClickHouse):
+
+![Superset dashboard](docs/superset.png)
+
+---
+
 ## DAG и Spark
 
 - DAG: [`airflow/dags/ecommerce_dwh_pipeline_dag.py`](airflow/dags/ecommerce_dwh_pipeline_dag.py) — `set_batch_id` → проверки ClickHouse и Livy → `spark_bronze` → `spark_silver` → `spark_load_clickhouse` → dbt (seed, staging, …, marts) → `dbt_test`.
