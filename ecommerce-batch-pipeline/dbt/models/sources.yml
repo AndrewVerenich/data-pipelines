@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: raw_ecommerce
+    schema: ecommerce_dwh
+    tables:
+      - name: raw_ecommerce_events
+      - name: raw_ref_users
+      - name: raw_ref_products

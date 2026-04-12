@@ -1,0 +1,30 @@
+name: 'ecommerce_dwh'
+version: '1.0'
+profile: 'clickhouse_profile'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+models:
+  ecommerce_dwh:
+    staging:
+      materialized: view
+      tags: ['staging']
+    intermediate:
+      materialized: view
+      tags: ['intermediate']
+    dimensions:
+      materialized: table
+      tags: ['dimensions']
+    facts:
+      materialized: table
+      tags: ['facts']
+    marts:
+      materialized: table
+      tags: ['marts']
+
+seeds:
+  ecommerce_dwh:
+    +full_refresh: true

@@ -1,4 +1,4 @@
-version: '3.8'
+name: ecommerce-pipeline
 
 services:
   namenode:
@@ -85,7 +85,6 @@ services:
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
     volumes:
       - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
-      - ./jars/postgresql-42.6.2.jar:/opt/jars/postgresql-42.6.2.jar
     networks:
       - hadoop
     healthcheck:
@@ -111,6 +110,38 @@ services:
       timeout: 5s
       retries: 5
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: ecommerce-clickhouse
+    ports:
+      - "8129:8123"
+      - "9002:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse/clickhouse-init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      CLICKHOUSE_USER: admin
+      CLICKHOUSE_PASSWORD: admin123
+      CLICKHOUSE_DB: ecommerce_dwh
+    networks:
+      - hadoop
+    healthcheck:
+      test: [ "CMD-SHELL", "clickhouse-client -q 'SELECT 1' || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  ecommerce-dbt:
+    build:
+      context: ./dbt
+    image: ecommerce-pipeline-dbt:latest
+    container_name: ecommerce-dbt-image
+    command: [ "--version" ]
+    networks:
+      - hadoop
+    restart: "no"
+
   livy:
     build:
       context: ./livy
@@ -121,14 +152,17 @@ services:
     environment:
       - SPARK_HOME=/opt/spark
     depends_on:
-      - spark-master
+      spark-master:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
     volumes:
       - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-app/spark-app-1.0-all.jar
-      - ./jars/postgresql-42.6.2.jar:/opt/jars/postgresql-42.6.2.jar
     networks:
       - hadoop
 
   airflow:
+    user: root
     build:
       context: ./airflow
       dockerfile: Dockerfile
@@ -141,6 +175,10 @@ services:
         condition: service_completed_successfully
       airflow-db:
         condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      ecommerce-dbt:
+        condition: service_completed_successfully
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
@@ -148,6 +186,8 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     volumes:
       - ./airflow/dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp:/tmp
     ports:
       - "8081:8080"
     command: bash -c "
@@ -180,7 +220,6 @@ services:
     volumes:
       - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
       - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-app/spark-app-1.0-all.jar
-      - ./jars/postgresql-42.6.2.jar:/opt/jars/postgresql-42.6.2.jar
     depends_on:
       - spark-master
     networks:
@@ -196,25 +235,8 @@ services:
     volumes:
       - ./hadoop-config/core-site.xml:/opt/spark/conf/core-site.xml
       - ./spark-app/build/libs/spark-app-1.0-all.jar:/opt/spark-app/spark-app-1.0-all.jar
-      - ./jars/postgresql-42.6.2.jar:/opt/jars/postgresql-42.6.2.jar
     depends_on:
       - spark-master
-    networks:
-      - hadoop
-
-  postgres:
-    image: postgres:15
-    container_name: ecommerce-postgres
-    restart: always
-    environment:
-      POSTGRES_USER: spark
-      POSTGRES_PASSWORD: sparkpass
-      POSTGRES_DB: ecommerce_logs
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - hadoop
 
@@ -223,7 +245,8 @@ services:
       context: ./superset
       dockerfile: Dockerfile
     depends_on:
-      - postgres
+      clickhouse:
+        condition: service_healthy
     container_name: superset
     environment:
       SUPERSET_SECRET_KEY: "supersecret"
@@ -243,8 +266,8 @@ volumes:
   hadoop_datanode1:
   hadoop_datanode2:
   airflow_pgdata:
-  pgdata:
   superset_home:
+  clickhouse-data:
 
 networks:
   hadoop:

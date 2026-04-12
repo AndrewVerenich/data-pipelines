@@ -1,12 +1,17 @@
 #!/bin/bash
+set -euo pipefail
 
-echo "Ждём запуск HDFS..."
-sleep 30
+echo "Waiting for HDFS..."
+sleep 25
 
-echo "Проверка конфигурации:"
+echo "Default FS:"
 hdfs getconf -confKey fs.defaultFS
 
-echo "Загружаем logs.txt в HDFS..."
-hdfs dfs -mkdir -p /logs
-hdfs dfs -put -f /data/logs.txt /logs/
-hdfs dfs -ls /logs
+echo "Loading raw layout into HDFS..."
+hdfs dfs -mkdir -p /raw/events /raw/reference /processed/bronze /processed/silver
+hdfs dfs -put -f /data/events.jsonl /raw/events/events.jsonl
+hdfs dfs -put -f /data/users.jsonl /raw/reference/users.jsonl
+hdfs dfs -put -f /data/products.jsonl /raw/reference/products.jsonl
+
+hdfs dfs -ls -R /raw
+echo "HDFS load complete."
