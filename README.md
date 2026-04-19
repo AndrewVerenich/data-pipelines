@@ -7,7 +7,7 @@
 - **Real-time DWH из Kafka** ([Marketing](./marketing-analytics-platform/README.md)): события в Kafka, ClickHouse, star schema и предагрегации, Superset.
 - **Smart Home IoT** ([IoT](./iot-pipeline/README.md)): Kotlin-симулятор (физика комнат, REST-конфиг в Postgres), Debezium CDC в Kafka Streams (KTable), топологии климат / освещение / охрана, **Kafka → ClickHouse → Grafana** (в т.ч. HVAC и lighting commands).
 - **Batch DWH + ELT** ([Ecommerce](./ecommerce-batch-pipeline/README.md)): **Medallion**-слои на практике — **Spark**: bronze / silver (Parquet в HDFS) → load в ClickHouse (raw); **«золото»** — **dbt** (staging → dimensions → facts → marts, схема «звезда»), **Airflow** (Livy + dbt в Docker), **Superset** на ClickHouse.
-- **Стриминговая обработка** ([User Behaviour](./user-behaviour-pipeline/README.md)): Flink, ClickHouse, Grafana.
+- **Стриминговая обработка с Flink** ([Clickstream Analytics](./clickstream-analytics-pipeline/README.md)): stateful processing на Apache Flink (KeyedProcessFunction + ValueState + event-time timers), два broadcast-стрима (fraud rules и user segments), side outputs для dead-letter и fraud alerts, ClickHouse Kafka Engine + MV, Grafana.
 
 ## 🎯 Цель проекта
 
@@ -91,18 +91,22 @@ Batch‑контур e‑commerce: синтетические события и 
 
 ---
 
-### ⚡ [Flink User Behaviour Analytics Pipeline](./user-behaviour-pipeline/README.md)
+### ⚡ [E-commerce Clickstream Analytics Pipeline (Apache Flink)](./clickstream-analytics-pipeline/README.md)
 
-**Стек:** Apache Kafka • Apache Flink • ClickHouse • Grafana • Spring Boot WebSocket Gateway
+**Стек:** Apache Kafka • Apache Flink 1.17 • ClickHouse • Grafana • Kotlin / Spring Boot
 
-Комплексный пайплайн для real-time обработки пользовательских событий с визуализацией метрик.
+Production-like стриминговый пайплайн: real-time обработка e-commerce clickstream через Apache Flink с фокусом на **stateful processing** и **Broadcast State Pattern**. Граф операторов читается как бизнес-процесс на Flink Dashboard, а все конфиги (fraud rules, user segments) обновляются в рантайме без перезапуска job'а.
 
 **Ключевые возможности:**
-- ✅ Потоковая обработка событий в Apache Flink
-- ✅ Хранение агрегированных метрик в ClickHouse
-- ✅ Визуализация данных в Grafana
-- ✅ Kafka как брокер сообщений для событий
-- ✅ Эмуляция пользовательского поведения через WebSocket Gateway
-- ✅ Docker Compose для оркестрации всех компонентов
+- ✅ Stateful session tracking: `KeyedProcessFunction` + `ValueState` + event-time timers (30 min gap)
+- ✅ Dynamic click-fraud detection: `KeyedBroadcastProcessFunction` с правилами из broadcast-стрима
+- ✅ User segmentation через второй broadcast-стрим (NEW / RETURNING / VIP)
+- ✅ Multi-step conversion funnel (view → click → cart → checkout → purchase) с таймаутом и ABANDONED / COMPLETED
+- ✅ Side outputs: dead-letter queue для невалидных событий + fraud alerts
+- ✅ Tumbling + sliding event-time windows, reusable `ProcessWindowFunction`'ы
+- ✅ Checkpointing с externalized checkpoints, at-least-once delivery в Kafka
+- ✅ ClickHouse: Kafka Engine + Materialized Views (8 таблиц), LowCardinality, DateTime MATERIALIZED
+- ✅ Pre-provisioned Grafana-дашборд с 13 панелями (sessions, fraud, funnel, heatmap, dead-letter)
+- ✅ `config-publisher` сервис периодически обновляет broadcast-конфиги - видно live на дашборде
 
 
