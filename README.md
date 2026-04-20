@@ -1,6 +1,7 @@
 # Data Pipelines
 
-Коллекция **production-like** пайплайнов: каждый проект в репозитории — это законченный контур «данные → хранилище → трансформации → оркестрация (где нужно) → визуализация», собранный в **Docker Compose** и приближенный к тому, как подобные системы выглядят в продуктовой среде.
+Коллекция пайплайнов данных: каждый проект в репозитории — это законченный контур «данные → хранилище → трансформации → 
+оркестрация (где нужно) → визуализация», собранный в **Docker Compose** и приближенный к тому, как подобные системы выглядят в продуктовой среде.
 
 Здесь намеренно сочетаются **разные архитектурные акценты**:
 - **Lakehouse / ELT** ([Fintech](#fintech-project)): CDC из OLTP, колоночное хранилище, **dbt**-слои и витрины, **Airflow**, **Superset**.
@@ -46,7 +47,7 @@ Real-time / batch Data Warehouse для маркетинговой аналит�
 
 **Стек:** Postgres • Debezium • Apache Kafka • ClickHouse • dbt • Apache Airflow • Apache Superset
 
-Production-like **ELT lakehouse** для финтех-домена: CDC семи таблиц Postgres → Kafka → ClickHouse, затем **dbt** (26 моделей, тесты на ключевых гранях) → витрины → **Airflow** (послойный запуск и quality gate) → **Superset** (дашборд и чарты из коробки).
+**ELT lakehouse** для финтех-домена: CDC семи таблиц Postgres → Kafka → ClickHouse, затем **dbt** (26 моделей, тесты на ключевых гранях) → витрины → **Airflow** (послойный запуск и quality gate) → **Superset** (дашборд и чарты из коробки).
 
 **Ключевые возможности:**
 - ✅ CDC ingestion из Postgres через Debezium + Kafka (7 таблиц)
@@ -100,7 +101,8 @@ Batch‑контур e‑commerce: синтетические события и 
 
 **Стек:** Apache Kafka • Apache Flink • ClickHouse • Grafana • Kotlin / Spring Boot
 
-Production-like стриминговый пайплайн: real-time обработка e-commerce clickstream через Apache Flink с фокусом на **stateful processing** и **Broadcast State Pattern**. Граф операторов читается как бизнес-процесс на Flink Dashboard, а все конфиги (fraud rules, user segments) обновляются в рантайме без перезапуска job'а.
+Стриминговый пайплайн: real-time обработка e-commerce clickstream через Apache Flink с фокусом на **stateful 
+processing** и **Broadcast State Pattern**. Граф операторов читается как бизнес-процесс на Flink Dashboard, а все конфиги (fraud rules, user segments) обновляются в рантайме без перезапуска job'а.
 
 **Ключевые возможности:**
 - ✅ Stateful session tracking: `KeyedProcessFunction` + `ValueState` + event-time timers
