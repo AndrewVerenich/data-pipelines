@@ -17,7 +17,7 @@ allprojects {
 }
 
 subprojects {
-    if (project.name !in listOf("iot-pipeline", "marketing-analytics-platform")) {
+    if (project.name !in listOf("iot-pipeline", "marketing-analytics-platform", "banking-lakehouse")) {
         apply(plugin = "org.jetbrains.kotlin.jvm")
         
         tasks.withType<KotlinCompile> {
@@ -42,6 +42,12 @@ project(":iot-pipeline:kafka-streams-app") {
 }
 
 project(":marketing-analytics-platform:event-producer") {
+    apply(plugin = "org.jetbrains.kotlin.plugin.spring")
+    apply(plugin = "org.springframework.boot")
+    apply(plugin = "io.spring.dependency-management")
+}
+
+project(":banking-lakehouse:generator") {
     apply(plugin = "org.jetbrains.kotlin.plugin.spring")
     apply(plugin = "org.springframework.boot")
     apply(plugin = "io.spring.dependency-management")

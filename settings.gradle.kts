@@ -8,4 +8,5 @@ include(
   "user-behaviour-pipeline:user-behaviour-emulator",
   "user-behaviour-pipeline:flink-job",
   "marketing-analytics-platform:event-producer",
+  "banking-lakehouse:generator",
 )
