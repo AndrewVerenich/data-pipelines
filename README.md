@@ -7,6 +7,7 @@
 - **Real-time DWH из Kafka** ([Marketing](./marketing-analytics-platform/README.md)): события в Kafka, ClickHouse, star schema и предагрегации, Superset.
 - **Smart Home IoT** ([IoT](./iot-pipeline/README.md)): Kotlin-симулятор (физика комнат, REST-конфиг в Postgres), Debezium CDC в Kafka Streams (KTable), топологии климат / освещение / охрана, **Kafka → ClickHouse → Grafana** (в т.ч. HVAC и lighting commands).
 - **Batch DWH + ELT** ([Ecommerce](./ecommerce-batch-pipeline/README.md)): **Medallion**-слои на практике — **Spark**: bronze / silver (Parquet в HDFS) → load в ClickHouse (raw); **«золото»** — **dbt** (staging → dimensions → facts → marts, схема «звезда»), **Airflow** (Livy + dbt в Docker), **Superset** на ClickHouse.
+- **S3 Data Lakehouse** ([Banking](./banking-lakehouse/README.md)): Kafka → MinIO (S3) → **Spark + Iceberg** (Bronze / Silver / Gold), SQL через **Trino**, **Airflow**, **Superset**.
 - **Стриминговая обработка** ([User Behaviour](./user-behaviour-pipeline/README.md)): Flink, ClickHouse, Grafana.
 
 ## 🎯 Цель проекта
@@ -88,6 +89,25 @@ Batch‑контур e‑commerce: синтетические события и 
 - ✅ DAG `ecommerce_dwh_pipeline`: проверки, Spark ×3, dbt по тегам, тесты качества
 - ✅ Superset с подключением к ClickHouse (`clickhouse-connect`)
 - ✅ Диаграммы пайплайна и моделирования измерений в README проекта
+
+---
+
+### 🏗️ [Banking Transactions Lakehouse](./banking-lakehouse/README.md)
+
+**Стек:** Apache Kafka • Kafka Connect S3 Sink • MinIO (S3) • Apache Spark • Apache Iceberg • Apache Trino • Apache Airflow • Apache Superset
+
+S3 Data Lakehouse для банковских транзакций: ingestion через Kafka Connect S3 Sink в MinIO, Medallion-слои (Bronze → Silver → Gold) на Apache Iceberg, SQL-запросы через Trino, оркестрация Airflow, визуализация в Superset.
+
+**Ключевые возможности:**
+- ✅ MinIO как S3-совместимый Data Lake (Bronze / Silver / Gold)
+- ✅ Apache Iceberg: ACID-транзакции, schema evolution, time travel
+- ✅ Kafka Connect S3 Sink Connector для автоматической записи в MinIO
+- ✅ Apache Spark для ETL: очистка, дедупликация, Iceberg-таблицы
+- ✅ Apache Trino для SQL-запросов по Iceberg-таблицам на MinIO
+- ✅ Medallion Architecture на объектном хранилище
+- ✅ Пять аналитических витрин: расходы, RFM-сегментация, аномалии, cashflow, каналы
+- ✅ Airflow DAG с послойным запуском Spark и data quality checks
+- ✅ Автоматический bootstrap Superset: дашборд «Banking Analytics»
 
 ---
 
