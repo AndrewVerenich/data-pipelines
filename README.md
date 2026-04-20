@@ -3,11 +3,11 @@
 Коллекция **production-like** пайплайнов: каждый проект в репозитории — это законченный контур «данные → хранилище → трансформации → оркестрация (где нужно) → визуализация», собранный в **Docker Compose** и приближенный к тому, как подобные системы выглядят в продуктовой среде.
 
 Здесь намеренно сочетаются **разные архитектурные акценты**:
-- **Lakehouse / ELT** ([Fintech](./fintech-lakehouse-analytics/README.md)): CDC из OLTP, колоночное хранилище, **dbt**-слои и витрины, **Airflow**, **Superset**.
-- **Real-time DWH из Kafka** ([Marketing](./marketing-analytics-platform/README.md)): события в Kafka, ClickHouse, star schema и предагрегации, Superset.
-- **Smart Home IoT** ([IoT](./iot-pipeline/README.md)): Kotlin-симулятор (физика комнат, REST-конфиг в Postgres), Debezium CDC в Kafka Streams (KTable), топологии климат / освещение / охрана, **Kafka → ClickHouse → Grafana** (в т.ч. HVAC и lighting commands).
-- **Batch DWH + ELT** ([Ecommerce](./ecommerce-batch-pipeline/README.md)): **Medallion**-слои на практике — **Spark**: bronze / silver (Parquet в HDFS) → load в ClickHouse (raw); **«золото»** — **dbt** (staging → dimensions → facts → marts, схема «звезда»), **Airflow** (Livy + dbt в Docker), **Superset** на ClickHouse.
-- **Стриминговая обработка с Flink** ([Clickstream Analytics](./clickstream-analytics-pipeline/README.md)): stateful processing на Apache Flink (KeyedProcessFunction + ValueState + event-time timers), два broadcast-стрима (fraud rules и user segments), side outputs для dead-letter и fraud alerts, ClickHouse Kafka Engine + MV, Grafana.
+- **Lakehouse / ELT** ([Fintech](#fintech-project)): CDC из OLTP, колоночное хранилище, **dbt**-слои и витрины, **Airflow**, **Superset**.
+- **Real-time DWH из Kafka** ([Marketing](#marketing-project)): события в Kafka, ClickHouse, star schema и предагрегации, Superset.
+- **Smart Home IoT** ([IoT](#iot-project)): Kotlin-симулятор (физика комнат, REST-конфиг в Postgres), Debezium CDC в Kafka Streams (KTable), топологии климат / освещение / охрана, **Kafka → ClickHouse → Grafana** (в т.ч. HVAC и lighting commands).
+- **Batch DWH + ELT** ([Ecommerce](#ecommerce-project)): **Medallion**-слои на практике — **Spark**: bronze / silver (Parquet в HDFS) → load в ClickHouse (raw); **«золото»** — **dbt** (staging → dimensions → facts → marts, схема «звезда»), **Airflow** (Livy + dbt в Docker), **Superset** на ClickHouse.
+- **Стриминговая обработка с Flink** ([Clickstream Analytics](#clickstream-project)): stateful processing на Apache Flink (KeyedProcessFunction + ValueState + event-time timers), два broadcast-стрима (fraud rules и user segments), side outputs для dead-letter и fraud alerts, ClickHouse Kafka Engine + MV, Grafana.
 
 ## 🎯 Цель проекта
 
@@ -22,6 +22,7 @@
 
 ## 🚀 Доступные пайплайны
 
+<a id="marketing-project"></a>
 ### 📈 [Marketing Analytics Platform](./marketing-analytics-platform/README.md)
 
 **Стек:** ClickHouse • Apache Kafka • Kotlin / Spring Boot • Apache Superset
@@ -40,6 +41,7 @@ Real-time / batch Data Warehouse для маркетинговой аналит�
 
 ---
 
+<a id="fintech-project"></a>
 ### 🏦 [Fintech ELT Data Lakehouse Pipeline](./fintech-lakehouse-analytics/README.md)
 
 **Стек:** Postgres • Debezium • Apache Kafka • ClickHouse • dbt • Apache Airflow • Apache Superset
@@ -57,6 +59,7 @@ Production-like **ELT lakehouse** для финтех-домена: CDC семи
 
 ---
 
+<a id="iot-project"></a>
 ### 🏠 [Smart Home IoT Pipeline](./iot-pipeline/README.md)
 
 **Стек:** Kotlin / Spring Boot • PostgreSQL • Debezium • Apache Kafka • Kafka Streams • ClickHouse • Grafana
@@ -74,6 +77,7 @@ Production-like **ELT lakehouse** для финтех-домена: CDC семи
 
 ---
 
+<a id="ecommerce-project"></a>
 ### 🛒 [Ecommerce batch DWH](./ecommerce-batch-pipeline/README.md)
 
 **Стек:** Hadoop HDFS • Apache Spark • Apache Livy • ClickHouse • dbt (dbt-clickhouse) • Apache Airflow • Apache Superset
@@ -91,6 +95,7 @@ Batch‑контур e‑commerce: синтетические события и 
 
 ---
 
+<a id="clickstream-project"></a>
 ### ⚡ [E-commerce Clickstream Analytics Pipeline (Apache Flink)](./clickstream-analytics-pipeline/README.md)
 
 **Стек:** Apache Kafka • Apache Flink • ClickHouse • Grafana • Kotlin / Spring Boot
