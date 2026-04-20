@@ -93,12 +93,12 @@ Batch‑контур e‑commerce: синтетические события и 
 
 ### ⚡ [E-commerce Clickstream Analytics Pipeline (Apache Flink)](./clickstream-analytics-pipeline/README.md)
 
-**Стек:** Apache Kafka • Apache Flink 1.17 • ClickHouse • Grafana • Kotlin / Spring Boot
+**Стек:** Apache Kafka • Apache Flink • ClickHouse • Grafana • Kotlin / Spring Boot
 
 Production-like стриминговый пайплайн: real-time обработка e-commerce clickstream через Apache Flink с фокусом на **stateful processing** и **Broadcast State Pattern**. Граф операторов читается как бизнес-процесс на Flink Dashboard, а все конфиги (fraud rules, user segments) обновляются в рантайме без перезапуска job'а.
 
 **Ключевые возможности:**
-- ✅ Stateful session tracking: `KeyedProcessFunction` + `ValueState` + event-time timers (30 min gap)
+- ✅ Stateful session tracking: `KeyedProcessFunction` + `ValueState` + event-time timers
 - ✅ Dynamic click-fraud detection: `KeyedBroadcastProcessFunction` с правилами из broadcast-стрима
 - ✅ User segmentation через второй broadcast-стрим (NEW / RETURNING / VIP)
 - ✅ Multi-step conversion funnel (view → click → cart → checkout → purchase) с таймаутом и ABANDONED / COMPLETED
@@ -107,6 +107,6 @@ Production-like стриминговый пайплайн: real-time обраб�
 - ✅ Checkpointing с externalized checkpoints, at-least-once delivery в Kafka
 - ✅ ClickHouse: Kafka Engine + Materialized Views (8 таблиц), LowCardinality, DateTime MATERIALIZED
 - ✅ Pre-provisioned Grafana-дашборд с 13 панелями (sessions, fraud, funnel, heatmap, dead-letter)
-- ✅ `config-publisher` сервис периодически обновляет broadcast-конфиги - видно live на дашборде
+- ✅ `config-publisher` сервис периодически обновляет broadcast-конфиги
 
 

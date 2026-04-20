@@ -113,8 +113,8 @@ services:
         jobmanager.rpc.port: 6123
         rest.port: 8081
         state.backend: hashmap
-        state.checkpoints.dir: file:///flink-checkpoints
-        state.savepoints.dir: file:///flink-savepoints
+        state.checkpoints.dir: file:///tmp/flink-checkpoints
+        state.savepoints.dir: file:///tmp/flink-savepoints
         execution.checkpointing.interval: 60000
     ports:
       - "8081:8081"
@@ -136,8 +136,8 @@ services:
         jobmanager.rpc.port: 6123
         taskmanager.numberOfTaskSlots: 4
         state.backend: hashmap
-        state.checkpoints.dir: file:///flink-checkpoints
-        state.savepoints.dir: file:///flink-savepoints
+        state.checkpoints.dir: file:///tmp/flink-checkpoints
+        state.savepoints.dir: file:///tmp/flink-savepoints
     volumes:
       - ./flink-job/build/libs:/jars
       - flink-checkpoints:/flink-checkpoints
@@ -158,14 +158,15 @@ services:
         condition: service_started
     volumes:
       - ./flink-job/build/libs:/jars
-    command: >
-      bash -c "
-        /opt/flink/bin/flink run
-          -d
-          -m jobmanager:8081
-          -c com.example.flink.ClickstreamAnalyticsJob
-          /jars/flink-job.jar
-      "
+    command:
+      - /opt/flink/bin/flink
+      - run
+      - -d
+      - -m
+      - jobmanager:8081
+      - -c
+      - com.example.flink.ClickstreamAnalyticsJob
+      - /jars/flink-job.jar
 
   clickhouse:
     image: clickhouse/clickhouse-server:23.8

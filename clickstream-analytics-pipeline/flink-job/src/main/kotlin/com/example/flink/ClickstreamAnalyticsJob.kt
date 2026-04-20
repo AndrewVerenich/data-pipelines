@@ -22,9 +22,9 @@ import org.apache.flink.streaming.api.windowing.time.Time
 import java.time.Duration
 
 /**
- * Main Flink streaming job: E-commerce clickstream analytics.
+ * Main Flink streaming job
  *
- * Graph layout (top-to-bottom):
+ * Graph layout:
  *
  * 1. `raw_events` (Kafka) -> [EventParserFunction] -> valid events + dead-letter side output.
  * 2. `user_segments` (Kafka) -> broadcast -> [UserSegmentEnricher] (BroadcastProcessFunction)
@@ -38,7 +38,7 @@ import java.time.Duration
  *      unique users per page (tumbling 1m), activity heatmap by hour-of-day (tumbling 1m).
  *
  * Every sink writes JSON-encoded records to its own Kafka topic, which is consumed by
- * ClickHouse Kafka Engine tables and visualised in Grafana.
+ * ClickHouse Kafka Engine tables
  */
 object ClickstreamAnalyticsJob {
 
@@ -109,6 +109,12 @@ object ClickstreamAnalyticsJob {
       .process(UserSegmentEnricher())
       .uid("segment-enricher")
       .name("Enrich with User Segment")
+      .assignTimestampsAndWatermarks(
+        WatermarkStrategy
+          .forBoundedOutOfOrderness<EnrichedEvent>(Duration.ofSeconds(5))
+          .withTimestampAssigner { e, _ -> e.timestamp }
+          .withIdleness(Duration.ofSeconds(30))
+      )
 
     // --- 3a. Session tracking via KeyedProcessFunction + event-time timers. ---
     enrichedStream

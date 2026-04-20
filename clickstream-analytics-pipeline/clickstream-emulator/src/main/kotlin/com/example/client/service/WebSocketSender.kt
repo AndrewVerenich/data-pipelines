@@ -1,5 +1,6 @@
 package com.example.client.service
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.TextMessage
@@ -31,6 +32,7 @@ class WebSocketSender {
 
   private val log = LoggerFactory.getLogger(WebSocketSender::class.java)
   private val rng = ThreadLocalRandom.current()
+  private val objectMapper = ObjectMapper()
 
   private val totalUsers = 100
   private val fraudsterIds: Set<String> = (1..5).map { "user_$it" }.toSet()
@@ -74,11 +76,6 @@ class WebSocketSender {
 
   private fun pickUserId(): String = "user_${rng.nextInt(totalUsers) + 1}"
 
-  /**
-   * Advances a single user by one step through their state machine, returning 1..2 JSON
-   * payloads ready to send. Returning up to two keeps bursts realistic
-   * (e.g. click often produces a follow-up page view).
-   */
   private fun advanceUser(userId: String): List<String> {
     val ctx = userCtx.getValue(userId)
     val now = System.currentTimeMillis()
@@ -288,19 +285,18 @@ class WebSocketSender {
     referrer: String? = null,
     timestamp: Long
   ): String {
-    val sb = StringBuilder(256)
-    sb.append('{')
-    sb.append("\"userId\":\"").append(userId).append('"')
-    sb.append(",\"eventType\":\"").append(eventType).append('"')
-    sb.append(",\"page\":\"").append(page).append('"')
-    if (productId != null) sb.append(",\"productId\":\"").append(productId).append('"')
-    if (category != null) sb.append(",\"category\":\"").append(category).append('"')
-    if (price != null) sb.append(",\"price\":").append(String.format("%.2f", price))
-    if (quantity != null) sb.append(",\"quantity\":").append(quantity)
-    if (searchQuery != null) sb.append(",\"searchQuery\":\"").append(searchQuery).append('"')
-    if (referrer != null) sb.append(",\"referrer\":\"").append(referrer).append('"')
-    sb.append(",\"timestamp\":").append(timestamp)
-    sb.append('}')
-    return sb.toString()
+    val payload = linkedMapOf<String, Any>(
+      "userId" to userId,
+      "eventType" to eventType,
+      "page" to page
+    )
+    productId?.let { payload["productId"] = it }
+    category?.let { payload["category"] = it }
+    price?.let { payload["price"] = it }
+    quantity?.let { payload["quantity"] = it }
+    searchQuery?.let { payload["searchQuery"] = it }
+    referrer?.let { payload["referrer"] = it }
+    payload["timestamp"] = timestamp
+    return objectMapper.writeValueAsString(payload)
   }
 }

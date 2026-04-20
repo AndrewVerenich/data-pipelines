@@ -21,7 +21,8 @@ import java.util.UUID
 class SessionTracker : KeyedProcessFunction<String, EnrichedEvent, SessionEvent>() {
 
   companion object {
-    const val SESSION_TIMEOUT_MS: Long = 30L * 60L * 1000L
+    // Keep timeout short enough for demo traffic so session_end events are emitted regularly.
+    const val SESSION_TIMEOUT_MS: Long = 90L * 1000L
     private const val STATE_NAME = "session-state"
   }
 
