@@ -1,8 +1,8 @@
 # ⚡ E-commerce Clickstream Analytics Pipeline (Apache Flink)
 
-Production-like стриминговый пайплайн на **Apache Flink 1.17** для real-time аналитики
+Стриминговый пайплайн на **Apache Flink** для real-time аналитики
 e-commerce кликстрима. Акцент сделан на **stateful processing** (keyed state + event-time
-timers), **Broadcast State Pattern** (два независимых broadcast-стрима для fraud rules и
+timers), **broadcast state pattern** (два независимых broadcast-стрима для fraud rules и
 user segments) и **side outputs** (dead letter queue + fraud alerts). Результирующий
 граф операторов разворачивается в кластере Flink и визуализируется на Flink Dashboard.
 
@@ -17,7 +17,7 @@ flowchart LR
     CFG[Config Publisher<br/>Kotlin Kafka Producer] -->|fraud_rules| K
     CFG -->|user_segments| K
     K --> FLINK["Apache Flink Job<br/>E-commerce Clickstream Analytics"]
-    FLINK -->|"7 output topics"| K
+    FLINK -->|"output topics"| K
     K --> CH[("ClickHouse<br/>Kafka Engine + MV")]
     CH --> GR[Grafana<br/>BI Dashboards]
 ```
@@ -105,10 +105,6 @@ flowchart TB
     AGG_UNIQ --> T_UNIQ
     AGG_HEAT --> T_HEAT
 ```
-
-> Все операторы помечены стабильными `uid` и человекочитаемыми `name`, так что граф на
-> Flink Dashboard читается как бизнес-процесс, а не как набор анонимных `Operator-N`.
-
 ---
 
 ## 🛠 Технологический стек
@@ -167,7 +163,7 @@ State machine: `page_view → click → add_to_cart → checkout_start → purch
 
 ### 6. Windowed aggregations
 
-Reусаются два generic window-функции:
+Используются две generic window-функции:
 - `CountMetricWindowFunction<K>` — count событий в окне, key берётся из keyBy
   (используется для `events_per_type`, `page_views`, `activity_heatmap`).
 - `UniqueUsersWindowFunction<K>` — cardinality уникальных `userId` в окне
@@ -264,7 +260,7 @@ cd data-pipelines
 
 # Собрать все 4 JVM-модуля пайплайна.
 ./gradlew :clickstream-analytics-pipeline:flink-job:shadowJar \
-          :clickstream-analytics-pipeline:config-publisher:shadowJar \
+          :clickstream-analytics-pipeline:config-publisher:bootJar \
           :clickstream-analytics-pipeline:gateway-websocket:bootJar \
           :clickstream-analytics-pipeline:clickstream-emulator:bootJar
 
@@ -273,11 +269,10 @@ cd clickstream-analytics-pipeline
 docker-compose up -d
 ```
 
-Поднятие занимает ~60 секунд (дольше всего стартует Kafka). Порядок загрузки
-управляется через `depends_on` + `service_healthy` / `service_completed_successfully`:
+Порядок управляется через `depends_on` + `service_healthy` / `service_completed_successfully`:
 
 1. Zookeeper → Kafka (healthcheck)
-2. `kafka-init` создаёт все 11 топиков
+2. `kafka-init` создаёт все топики
 3. `gateway-websocket` поднимается (healthcheck `/actuator/health`)
 4. `config-publisher` публикует начальные правила и сегменты
 5. `emulator` начинает слать события через WebSocket
@@ -337,7 +332,7 @@ clickstream-analytics-pipeline/
 │   ├── Dockerfile
 │   ├── build.gradle.kts
 │   └── src/main/kotlin/com/example/gateway/
-├── clickstream-emulator/             # Генератор реалистичных journey'ев
+├── clickstream-emulator/             # Генератор реалистичных сценариев
 │   ├── Dockerfile
 │   ├── build.gradle.kts
 │   └── src/main/kotlin/com/example/client/
@@ -384,15 +379,15 @@ clickstream-analytics-pipeline/
 
 ## Скриншоты
 
-_Добавьте скриншоты после запуска:_
+![Flink Job Graph](docs/flink.png)
 
-![Flink Job Graph](docs/flink.jpg)
+![Grafana Dashboard_1](docs/grafana_1.png)
 
-![Grafana Dashboard](docs/metrics.jpg)
+![Grafana Dashboard_2](docs/grafana_2.png)
 
 ---
 
-## ✅ Чеклист (что реализовано)
+## ✅ Что реализовано
 
 - [x] Полный E2E поток: emulator → WS → Kafka → Flink → Kafka → ClickHouse → Grafana
 - [x] `KeyedProcessFunction` с `ValueState` и event-time таймерами (SessionTracker, FunnelAnalyzer)

@@ -13,11 +13,11 @@ class KafkaConfig {
   @Bean
   fun producerFactory(): ProducerFactory<String?, String?> {
     val bootstrap = System.getenv().getOrDefault("KAFKA_BOOTSTRAP", "localhost:9092")
-    val props: MutableMap<String?, Any?> = HashMap<String?, Any?>()
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap)
-    props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer::class.java)
-    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer::class.java)
-    props.put(ProducerConfig.ACKS_CONFIG, "1")
+    val props: MutableMap<String?, Any?> = HashMap()
+    props[ProducerConfig.BOOTSTRAP_SERVERS_CONFIG] = bootstrap
+    props[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java
+    props[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java
+    props[ProducerConfig.ACKS_CONFIG] = "1"
     return DefaultKafkaProducerFactory<String?, String?>(props)
   }
 

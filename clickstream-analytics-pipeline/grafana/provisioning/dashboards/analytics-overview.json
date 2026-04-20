@@ -108,11 +108,26 @@
       "type": "piechart",
       "gridPos": { "h": 6, "w": 12, "x": 12, "y": 16 },
       "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [],
+          "fields": ""
+        },
+        "pieType": "pie",
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
       "targets": [
         {
           "refId": "A",
           "rawQuery": true,
-          "rawSql": "SELECT segment, count() AS sessions FROM session_events WHERE eventType = 'session_start' AND start_ts >= now() - INTERVAL 1 HOUR GROUP BY segment",
+          "rawSql": "SELECT segment AS metric, countDistinct(sessionId) AS value FROM session_events WHERE eventType = 'session_end' AND end_ts >= now() - INTERVAL 1 HOUR AND segment != 'UNKNOWN' GROUP BY segment ORDER BY value DESC",
           "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
         }
       ]
@@ -172,7 +187,7 @@
         {
           "refId": "A",
           "rawQuery": true,
-          "rawSql": "SELECT event_time, userId, ruleType, ruleId, eventCount, segment FROM fraud_alerts WHERE event_time >= now() - INTERVAL 1 HOUR ORDER BY event_time DESC LIMIT 25",
+          "rawSql": "SELECT event_time, userId, ruleType, ruleId, eventCount, segment FROM fraud_alerts WHERE event_time >= now() - INTERVAL 1 HOUR ORDER BY event_time ASC LIMIT 25",
           "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
         }
       ]
@@ -181,13 +196,14 @@
       "id": 12,
       "title": "Activity Heatmap (hour of day UTC)",
       "type": "heatmap",
+      "description": "Color intensity represents event volume per 1-minute window for each UTC hour bucket (0-23): darker/hotter colors mean more events, lighter/cooler colors mean fewer events.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 38 },
       "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
       "targets": [
         {
           "refId": "A",
           "rawQuery": true,
-          "rawSql": "SELECT window_ts AS time, key AS hour, value FROM activity_heatmap WHERE window_ts >= now() - INTERVAL 6 HOUR ORDER BY time",
+          "rawSql": "SELECT window_ts AS time, toUInt8(key) AS utc_hour, value AS events_per_minute FROM activity_heatmap WHERE window_ts >= now() - INTERVAL 6 HOUR ORDER BY time, utc_hour",
           "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
         }
       ]

@@ -1,11 +1,18 @@
 package com.example.config
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import jakarta.annotation.PreDestroy
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.StringSerializer
 import org.slf4j.LoggerFactory
+import org.springframework.boot.CommandLineRunner
+import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.runApplication
+import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.stereotype.Service
 import java.util.Properties
 import java.util.concurrent.ThreadLocalRandom
 
@@ -35,40 +42,56 @@ data class UserSegmentConfig(
   val updatedAt: Long
 )
 
-private val log = LoggerFactory.getLogger("ConfigPublisher")
-private val mapper = jacksonObjectMapper()
-
 private const val TOPIC_RULES = "fraud_rules"
 private const val TOPIC_SEGMENTS = "user_segments"
 
-fun main() {
-  val bootstrap = System.getenv("KAFKA_BOOTSTRAP") ?: "kafka:9092"
-  log.info("ConfigPublisher starting with bootstrap={}", bootstrap)
+@SpringBootApplication
+@EnableScheduling
+class ConfigPublisherApplication(private val publisher: ConfigPublisherService) : CommandLineRunner {
+  private val log = LoggerFactory.getLogger(ConfigPublisherApplication::class.java)
 
-  val producer = createProducer(bootstrap)
-  Runtime.getRuntime().addShutdownHook(Thread { producer.close() })
+  override fun run(vararg args: String?) {
+    log.info("Spring Boot ConfigPublisher started")
+    publisher.publishInitialSnapshot()
+  }
+}
 
-  publishInitialFraudRules(producer)
-  publishInitialSegments(producer)
-  producer.flush()
-  log.info("Initial config published: rules + segments")
+fun main(args: Array<String>) {
+  runApplication<ConfigPublisherApplication>(*args)
+}
 
-  val rng = ThreadLocalRandom.current()
-  var iteration = 0
-  while (true) {
-    Thread.sleep(60_000)
+@Service
+class ConfigPublisherService {
+  private val log = LoggerFactory.getLogger(ConfigPublisherService::class.java)
+  private val mapper = jacksonObjectMapper()
+  private val rng = ThreadLocalRandom.current()
+  private var iteration = 0
+
+  private val producer: KafkaProducer<String, String> by lazy {
+    createProducer(kafkaBootstrap())
+  }
+
+  fun publishInitialSnapshot() {
+    log.info("ConfigPublisher bootstrapping Kafka configs, bootstrap={}", kafkaBootstrap())
+    publishInitialFraudRules()
+    publishInitialSegments()
+    producer.flush()
+    log.info("Initial config published: rules + segments")
+  }
+
+  @Scheduled(fixedDelayString = "\${config.publisher.update-interval-ms:60000}")
+  fun rotateConfigs() {
     iteration++
-
     val userIndex = rng.nextInt(1, 101)
     val userId = "user_$userIndex"
-    val newSegment = listOf("NEW", "RETURNING", "VIP").random()
-    publishSegment(producer, UserSegmentConfig(userId, newSegment, System.currentTimeMillis()))
+    val segments = listOf("NEW", "RETURNING", "VIP")
+    val newSegment = segments[rng.nextInt(segments.size)]
+    publishSegment(UserSegmentConfig(userId, newSegment, System.currentTimeMillis()))
     log.info("Rotated segment: user={} -> {}", userId, newSegment)
 
     if (iteration % 5 == 0) {
       val newMaxClicks = 15 + rng.nextInt(11)
       publishRule(
-        producer,
         FraudRule(
           ruleId = "rule-clicks",
           ruleType = "MAX_CLICKS_PER_WINDOW",
@@ -83,69 +106,76 @@ fun main() {
 
     producer.flush()
   }
-}
 
-private fun createProducer(bootstrap: String): KafkaProducer<String, String> {
-  val props = Properties().apply {
-    put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap)
-    put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer::class.java.name)
-    put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer::class.java.name)
-    put(ProducerConfig.ACKS_CONFIG, "all")
-    put(ProducerConfig.RETRIES_CONFIG, 5)
-    put(ProducerConfig.CLIENT_ID_CONFIG, "config-publisher")
+  @PreDestroy
+  fun closeProducer() {
+    producer.close()
   }
-  return KafkaProducer(props)
-}
 
-private fun publishInitialFraudRules(producer: KafkaProducer<String, String>) {
-  val rules = listOf(
-    FraudRule(
-      ruleId = "rule-clicks",
-      ruleType = "MAX_CLICKS_PER_WINDOW",
-      eventType = "click",
-      maxCount = 15,
-      windowSeconds = 60,
-      active = true
-    ),
-    FraudRule(
-      ruleId = "rule-rapid-purchases",
-      ruleType = "RAPID_PURCHASES",
-      eventType = "purchase",
-      maxCount = 5,
-      windowSeconds = 120,
-      active = true
-    ),
-    FraudRule(
-      ruleId = "rule-bot-scrape",
-      ruleType = "MAX_PAGE_VIEWS_PER_WINDOW",
-      eventType = "page_view",
-      maxCount = 60,
-      windowSeconds = 60,
-      active = true
+  private fun kafkaBootstrap(): String = System.getenv("KAFKA_BOOTSTRAP") ?: "kafka:9092"
+
+  private fun createProducer(bootstrap: String): KafkaProducer<String, String> {
+    val props = Properties().apply {
+      put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap)
+      put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer::class.java.name)
+      put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer::class.java.name)
+      put(ProducerConfig.ACKS_CONFIG, "all")
+      put(ProducerConfig.RETRIES_CONFIG, 5)
+      put(ProducerConfig.CLIENT_ID_CONFIG, "config-publisher")
+    }
+    return KafkaProducer(props)
+  }
+
+  private fun publishInitialFraudRules() {
+    val rules = listOf(
+      FraudRule(
+        ruleId = "rule-clicks",
+        ruleType = "MAX_CLICKS_PER_WINDOW",
+        eventType = "click",
+        maxCount = 15,
+        windowSeconds = 60,
+        active = true
+      ),
+      FraudRule(
+        ruleId = "rule-rapid-purchases",
+        ruleType = "RAPID_PURCHASES",
+        eventType = "purchase",
+        maxCount = 5,
+        windowSeconds = 120,
+        active = true
+      ),
+      FraudRule(
+        ruleId = "rule-bot-scrape",
+        ruleType = "MAX_PAGE_VIEWS_PER_WINDOW",
+        eventType = "page_view",
+        maxCount = 60,
+        windowSeconds = 60,
+        active = true
+      )
     )
-  )
-  rules.forEach { publishRule(producer, it) }
-}
-
-private fun publishInitialSegments(producer: KafkaProducer<String, String>) {
-  val now = System.currentTimeMillis()
-  for (i in 1..10) {
-    publishSegment(producer, UserSegmentConfig("user_$i", "VIP", now))
+    rules.forEach { publishRule(it) }
   }
-  for (i in 11..50) {
-    publishSegment(producer, UserSegmentConfig("user_$i", "RETURNING", now))
-  }
-  for (i in 51..100) {
-    publishSegment(producer, UserSegmentConfig("user_$i", "NEW", now))
-  }
-}
 
-private fun publishRule(producer: KafkaProducer<String, String>, rule: FraudRule) {
-  val json = mapper.writeValueAsString(rule)
-  producer.send(ProducerRecord(TOPIC_RULES, rule.ruleId, json))
-}
+  private fun publishInitialSegments() {
+    val now = System.currentTimeMillis()
+    for (i in 1..10) {
+      publishSegment(UserSegmentConfig("user_$i", "VIP", now))
+    }
+    for (i in 11..50) {
+      publishSegment(UserSegmentConfig("user_$i", "RETURNING", now))
+    }
+    for (i in 51..100) {
+      publishSegment(UserSegmentConfig("user_$i", "NEW", now))
+    }
+  }
 
-private fun publishSegment(producer: KafkaProducer<String, String>, cfg: UserSegmentConfig) {
-  val json = mapper.writeValueAsString(cfg)
-  producer.send(ProducerRecord(TOPIC_SEGMENTS, cfg.userId, json))
+  private fun publishRule(rule: FraudRule) {
+    val json = mapper.writeValueAsString(rule)
+    producer.send(ProducerRecord(TOPIC_RULES, rule.ruleId, json))
+  }
+
+  private fun publishSegment(cfg: UserSegmentConfig) {
+    val json = mapper.writeValueAsString(cfg)
+    producer.send(ProducerRecord(TOPIC_SEGMENTS, cfg.userId, json))
+  }
 }
