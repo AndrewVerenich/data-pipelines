@@ -51,7 +51,7 @@ flowchart LR
   Mart --> Ss
 ```
 
-Production-like ELT-пайплайн для финтех-аналитики: `Postgres → Debezium → Kafka → ClickHouse → dbt → Airflow → Superset`.
+ELT-пайплайн для финтех-аналитики: `Postgres → Debezium → Kafka → ClickHouse → dbt → Airflow → Superset`.
 
 Решает задачу построения единой аналитической платформы поверх транзакционной БД: от CDC-захвата операций до бизнес-витрин с метриками по выручке, клиентам, платёжным каналам, кредитному портфелю и фроду.
 
