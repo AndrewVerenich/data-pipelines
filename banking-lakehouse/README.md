@@ -13,8 +13,6 @@ flowchart LR
 
 S3 Data Lakehouse для банковского домена с Medallion-архитектурой: ingestion идёт через Kafka Connect S3 Sink в MinIO (`bronze`), Spark преобразует данные в Iceberg-таблицы (`silver`, `gold`), а Trino и Superset дают SQL/BI-слой поверх gold-витрин.
 
-Проект сделан как production-like локальный контур: сервисы запускаются в одном `docker compose`, ключевые зависимости healthcheck-ориентированы, bootstrap-конфигурация (бакеты, Kafka Connect, Superset) автоматизирована.
-
 ---
 
 ## 🛠 Технологический стек

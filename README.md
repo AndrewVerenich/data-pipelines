@@ -4,12 +4,13 @@
 оркестрация (где нужно) → визуализация», собранный в **Docker Compose** и приближенный к тому, как подобные системы выглядят в продуктовой среде.
 
 Здесь намеренно сочетаются **разные архитектурные акценты**:
-- **Lakehouse / ELT** ([Fintech](#fintech-project)): CDC из OLTP, колоночное хранилище, **dbt**-слои и витрины, **Airflow**, **Superset**.
 - **Real-time DWH из Kafka** ([Marketing](#marketing-project)): события в Kafka, ClickHouse, star schema и предагрегации, Superset.
+- **Lakehouse / ELT** ([Fintech](#fintech-project)): CDC из OLTP, колоночное хранилище, **dbt**-слои и витрины, **Airflow**, **Superset**.
 - **Smart Home IoT** ([IoT](#iot-project)): Kotlin-симулятор (физика комнат, REST-конфиг в Postgres), Debezium CDC в Kafka Streams (KTable), топологии климат / освещение / охрана, **Kafka → ClickHouse → Grafana** (в т.ч. HVAC и lighting commands).
 - **Batch DWH + ELT** ([Ecommerce](#ecommerce-project)): **Medallion**-слои на практике — **Spark**: bronze / silver (Parquet в HDFS) → load в ClickHouse (raw); **«золото»** — **dbt** (staging → dimensions → facts → marts, схема «звезда»), **Airflow** (Livy + dbt в Docker), **Superset** на ClickHouse.
 - **Стриминговая обработка с Flink** ([Clickstream Analytics](#clickstream-project)): stateful processing на Apache Flink (KeyedProcessFunction + ValueState + event-time timers), два broadcast-стрима (fraud rules и user segments), side outputs для dead-letter и fraud alerts, ClickHouse Kafka Engine + MV, Grafana.
-- **S3 Data Lakehouse** ([Banking](./banking-lakehouse/README.md)): Kafka → MinIO (S3) → **Spark + Iceberg** (Bronze / Silver / Gold), SQL через **Trino**, **Airflow**, **Superset**.
+- **S3 Data Lakehouse** ([Banking](#s3-lakehouse-project)): Kafka → MinIO (S3) → **Spark + Iceberg** (Bronze / Silver / 
+  Gold), SQL через **Trino**, **Airflow**, **Superset**.
 
 ## 🎯 Цель проекта
 
@@ -119,6 +120,7 @@ processing** и **Broadcast State Pattern**. Граф операторов чи�
 
 ---
 
+<a id="s3-lakehouse-project"></a>
 ### 🏗️ [Banking Transactions Lakehouse](./banking-lakehouse/README.md)
 
 **Стек:** Apache Kafka • Kafka Connect S3 Sink • MinIO (S3) • Apache Spark • Apache Iceberg • Apache Trino • Apache Airflow • Apache Superset
