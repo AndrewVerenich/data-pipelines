@@ -1,0 +1,227 @@
+{
+  "id": null,
+  "uid": "clickstream-overview",
+  "title": "E-commerce Clickstream Analytics",
+  "tags": ["flink", "clickstream", "e-commerce"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "version": 1,
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Events per Type (per minute)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 20 } } },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(windowStart/1000) AS time, key AS event_type, value FROM events_per_type WHERE window_ts >= now() - INTERVAL 1 HOUR ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Top Pages (sliding 5m)",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT key AS page, sum(value) AS views FROM page_views WHERE window_ts >= now() - INTERVAL 15 MINUTE GROUP BY key ORDER BY views DESC LIMIT 10",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Unique Users per Page (per minute)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toDateTime(windowStart/1000) AS time, key AS page, value FROM unique_users_per_page WHERE window_ts >= now() - INTERVAL 1 HOUR ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Sessions Opened / Closed per Minute",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toStartOfMinute(start_ts) AS time, eventType, count() AS sessions FROM session_events WHERE start_ts >= now() - INTERVAL 1 HOUR GROUP BY time, eventType ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Avg Session Duration (seconds)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 16 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 1 } },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT avg(durationMs) / 1000 AS avg_seconds FROM session_events WHERE eventType = 'session_end' AND end_ts >= now() - INTERVAL 1 HOUR",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Avg Events per Session",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 16 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "fieldConfig": { "defaults": { "decimals": 1 } },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT avg(eventCount) FROM session_events WHERE eventType = 'session_end' AND end_ts >= now() - INTERVAL 1 HOUR",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Sessions by Segment",
+      "type": "piechart",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [],
+          "fields": ""
+        },
+        "pieType": "pie",
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT segment AS metric, countDistinct(sessionId) AS value FROM session_events WHERE eventType = 'session_end' AND end_ts >= now() - INTERVAL 1 HOUR AND segment != 'UNKNOWN' GROUP BY segment ORDER BY value DESC",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Conversion Funnel (last hour)",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT step, count() AS users FROM funnel_events WHERE step IN ('VIEW','CLICK','ADD_TO_CART','CHECKOUT','PURCHASE') AND step_ts >= now() - INTERVAL 1 HOUR GROUP BY step ORDER BY multiIf(step='VIEW',1,step='CLICK',2,step='ADD_TO_CART',3,step='CHECKOUT',4,5)",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Funnel Outcome (Completed vs Abandoned)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toStartOfMinute(step_ts) AS time, step, count() AS n FROM funnel_events WHERE step IN ('COMPLETED','ABANDONED') AND step_ts >= now() - INTERVAL 1 HOUR GROUP BY time, step ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Fraud Alerts per Minute (by rule)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 30 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toStartOfMinute(event_time) AS time, ruleType, count() AS alerts FROM fraud_alerts WHERE event_time >= now() - INTERVAL 1 HOUR GROUP BY time, ruleType ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Recent Fraud Alerts",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 30 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT event_time, userId, ruleType, ruleId, eventCount, segment FROM fraud_alerts WHERE event_time >= now() - INTERVAL 1 HOUR ORDER BY event_time ASC LIMIT 25",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Activity Heatmap (hour of day UTC)",
+      "type": "heatmap",
+      "description": "Color intensity represents event volume per 1-minute window for each UTC hour bucket (0-23): darker/hotter colors mean more events, lighter/cooler colors mean fewer events.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 38 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT window_ts AS time, toUInt8(key) AS utc_hour, value AS events_per_minute FROM activity_heatmap WHERE window_ts >= now() - INTERVAL 6 HOUR ORDER BY time, utc_hour",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Dead-Letter Records per Minute",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 38 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "rawSql": "SELECT toStartOfMinute(event_time) AS time, reason, count() AS n FROM dead_letter WHERE event_time >= now() - INTERVAL 1 HOUR GROUP BY time, reason ORDER BY time",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ds" }
+        }
+      ]
+    }
+  ]
+}

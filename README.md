@@ -1,14 +1,15 @@
 # Data Pipelines
 
-Коллекция **production-like** пайплайнов: каждый проект в репозитории — это законченный контур «данные → хранилище → трансформации → оркестрация (где нужно) → визуализация», собранный в **Docker Compose** и приближенный к тому, как подобные системы выглядят в продуктовой среде.
+Коллекция пайплайнов данных: каждый проект в репозитории — это законченный контур «данные → хранилище → трансформации → 
+оркестрация (где нужно) → визуализация», собранный в **Docker Compose** и приближенный к тому, как подобные системы выглядят в продуктовой среде.
 
 Здесь намеренно сочетаются **разные архитектурные акценты**:
-- **Lakehouse / ELT** ([Fintech](./fintech-lakehouse-analytics/README.md)): CDC из OLTP, колоночное хранилище, **dbt**-слои и витрины, **Airflow**, **Superset**.
-- **Real-time DWH из Kafka** ([Marketing](./marketing-analytics-platform/README.md)): события в Kafka, ClickHouse, star schema и предагрегации, Superset.
-- **Smart Home IoT** ([IoT](./iot-pipeline/README.md)): Kotlin-симулятор (физика комнат, REST-конфиг в Postgres), Debezium CDC в Kafka Streams (KTable), топологии климат / освещение / охрана, **Kafka → ClickHouse → Grafana** (в т.ч. HVAC и lighting commands).
-- **Batch DWH + ELT** ([Ecommerce](./ecommerce-batch-pipeline/README.md)): **Medallion**-слои на практике — **Spark**: bronze / silver (Parquet в HDFS) → load в ClickHouse (raw); **«золото»** — **dbt** (staging → dimensions → facts → marts, схема «звезда»), **Airflow** (Livy + dbt в Docker), **Superset** на ClickHouse.
+- **Lakehouse / ELT** ([Fintech](#fintech-project)): CDC из OLTP, колоночное хранилище, **dbt**-слои и витрины, **Airflow**, **Superset**.
+- **Real-time DWH из Kafka** ([Marketing](#marketing-project)): события в Kafka, ClickHouse, star schema и предагрегации, Superset.
+- **Smart Home IoT** ([IoT](#iot-project)): Kotlin-симулятор (физика комнат, REST-конфиг в Postgres), Debezium CDC в Kafka Streams (KTable), топологии климат / освещение / охрана, **Kafka → ClickHouse → Grafana** (в т.ч. HVAC и lighting commands).
+- **Batch DWH + ELT** ([Ecommerce](#ecommerce-project)): **Medallion**-слои на практике — **Spark**: bronze / silver (Parquet в HDFS) → load в ClickHouse (raw); **«золото»** — **dbt** (staging → dimensions → facts → marts, схема «звезда»), **Airflow** (Livy + dbt в Docker), **Superset** на ClickHouse.
+- **Стриминговая обработка с Flink** ([Clickstream Analytics](#clickstream-project)): stateful processing на Apache Flink (KeyedProcessFunction + ValueState + event-time timers), два broadcast-стрима (fraud rules и user segments), side outputs для dead-letter и fraud alerts, ClickHouse Kafka Engine + MV, Grafana.
 - **S3 Data Lakehouse** ([Banking](./banking-lakehouse/README.md)): Kafka → MinIO (S3) → **Spark + Iceberg** (Bronze / Silver / Gold), SQL через **Trino**, **Airflow**, **Superset**.
-- **Стриминговая обработка** ([User Behaviour](./user-behaviour-pipeline/README.md)): Flink, ClickHouse, Grafana.
 
 ## 🎯 Цель проекта
 
@@ -23,6 +24,7 @@
 
 ## 🚀 Доступные пайплайны
 
+<a id="marketing-project"></a>
 ### 📈 [Marketing Analytics Platform](./marketing-analytics-platform/README.md)
 
 **Стек:** ClickHouse • Apache Kafka • Kotlin / Spring Boot • Apache Superset
@@ -41,11 +43,12 @@ Real-time / batch Data Warehouse для маркетинговой аналит�
 
 ---
 
+<a id="fintech-project"></a>
 ### 🏦 [Fintech ELT Data Lakehouse Pipeline](./fintech-lakehouse-analytics/README.md)
 
 **Стек:** Postgres • Debezium • Apache Kafka • ClickHouse • dbt • Apache Airflow • Apache Superset
 
-Production-like **ELT lakehouse** для финтех-домена: CDC семи таблиц Postgres → Kafka → ClickHouse, затем **dbt** (26 моделей, тесты на ключевых гранях) → витрины → **Airflow** (послойный запуск и quality gate) → **Superset** (дашборд и чарты из коробки).
+**ELT lakehouse** для финтех-домена: CDC семи таблиц Postgres → Kafka → ClickHouse, затем **dbt** (26 моделей, тесты на ключевых гранях) → витрины → **Airflow** (послойный запуск и quality gate) → **Superset** (дашборд и чарты из коробки).
 
 **Ключевые возможности:**
 - ✅ CDC ingestion из Postgres через Debezium + Kafka (7 таблиц)
@@ -58,6 +61,7 @@ Production-like **ELT lakehouse** для финтех-домена: CDC семи
 
 ---
 
+<a id="iot-project"></a>
 ### 🏠 [Smart Home IoT Pipeline](./iot-pipeline/README.md)
 
 **Стек:** Kotlin / Spring Boot • PostgreSQL • Debezium • Apache Kafka • Kafka Streams • ClickHouse • Grafana
@@ -75,6 +79,7 @@ Production-like **ELT lakehouse** для финтех-домена: CDC семи
 
 ---
 
+<a id="ecommerce-project"></a>
 ### 🛒 [Ecommerce batch DWH](./ecommerce-batch-pipeline/README.md)
 
 **Стек:** Hadoop HDFS • Apache Spark • Apache Livy • ClickHouse • dbt (dbt-clickhouse) • Apache Airflow • Apache Superset
@@ -89,6 +94,28 @@ Batch‑контур e‑commerce: синтетические события и 
 - ✅ DAG `ecommerce_dwh_pipeline`: проверки, Spark ×3, dbt по тегам, тесты качества
 - ✅ Superset с подключением к ClickHouse (`clickhouse-connect`)
 - ✅ Диаграммы пайплайна и моделирования измерений в README проекта
+
+---
+
+<a id="clickstream-project"></a>
+### ⚡ [E-commerce Clickstream Analytics Pipeline (Apache Flink)](./clickstream-analytics-pipeline/README.md)
+
+**Стек:** Apache Kafka • Apache Flink • ClickHouse • Grafana • Kotlin / Spring Boot
+
+Стриминговый пайплайн: real-time обработка e-commerce clickstream через Apache Flink с фокусом на **stateful 
+processing** и **Broadcast State Pattern**. Граф операторов читается как бизнес-процесс на Flink Dashboard, а все конфиги (fraud rules, user segments) обновляются в рантайме без перезапуска job'а.
+
+**Ключевые возможности:**
+- ✅ Stateful session tracking: `KeyedProcessFunction` + `ValueState` + event-time timers
+- ✅ Dynamic click-fraud detection: `KeyedBroadcastProcessFunction` с правилами из broadcast-стрима
+- ✅ User segmentation через второй broadcast-стрим (NEW / RETURNING / VIP)
+- ✅ Multi-step conversion funnel (view → click → cart → checkout → purchase) с таймаутом и ABANDONED / COMPLETED
+- ✅ Side outputs: dead-letter queue для невалидных событий + fraud alerts
+- ✅ Tumbling + sliding event-time windows, reusable `ProcessWindowFunction`'ы
+- ✅ Checkpointing с externalized checkpoints, at-least-once delivery в Kafka
+- ✅ ClickHouse: Kafka Engine + Materialized Views (8 таблиц), LowCardinality, DateTime MATERIALIZED
+- ✅ Pre-provisioned Grafana-дашборд с 13 панелями (sessions, fraud, funnel, heatmap, dead-letter)
+- ✅ `config-publisher` сервис периодически обновляет broadcast-конфиги
 
 ---
 
@@ -110,19 +137,3 @@ S3 Data Lakehouse для банковских транзакций: ingestion ч
 - ✅ Автоматический bootstrap Superset: дашборд «Banking Analytics»
 
 ---
-
-### ⚡ [Flink User Behaviour Analytics Pipeline](./user-behaviour-pipeline/README.md)
-
-**Стек:** Apache Kafka • Apache Flink • ClickHouse • Grafana • Spring Boot WebSocket Gateway
-
-Комплексный пайплайн для real-time обработки пользовательских событий с визуализацией метрик.
-
-**Ключевые возможности:**
-- ✅ Потоковая обработка событий в Apache Flink
-- ✅ Хранение агрегированных метрик в ClickHouse
-- ✅ Визуализация данных в Grafana
-- ✅ Kafka как брокер сообщений для событий
-- ✅ Эмуляция пользовательского поведения через WebSocket Gateway
-- ✅ Docker Compose для оркестрации всех компонентов
-
-
