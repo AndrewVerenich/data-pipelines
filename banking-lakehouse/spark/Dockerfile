@@ -1,10 +1,3 @@
-FROM maven:3.9.9-eclipse-temurin-17 AS spark-jobs-build
-
-WORKDIR /build
-COPY java/pom.xml ./pom.xml
-COPY java/src ./src
-RUN mvn -q -DskipTests package
-
 FROM apache/spark:3.5.0
 
 USER root
@@ -20,8 +13,7 @@ RUN curl -L -o /opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.5.2.jar \
     curl -L -o /opt/spark/jars/aws-java-sdk-bundle-1.12.262.jar \
     https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar
 
-COPY jobs/ /opt/spark-jobs/
-COPY --from=spark-jobs-build /build/target/banking-spark-jobs-1.0.0.jar /opt/spark-jobs/banking-spark-jobs.jar
+COPY build/libs/banking-spark-jobs-1.0.0.jar /opt/spark-jobs/banking-spark-jobs.jar
 
 ENV AWS_REGION=us-east-1
 ENV AWS_ACCESS_KEY_ID=admin

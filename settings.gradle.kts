@@ -10,4 +10,5 @@ include(
   "clickstream-analytics-pipeline:config-publisher",
   "marketing-analytics-platform:event-producer",
   "banking-lakehouse:generator",
+  "banking-lakehouse:spark",
 )

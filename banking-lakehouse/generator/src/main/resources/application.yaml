@@ -9,8 +9,8 @@ spring:
 
 app:
   generator:
-    customer-interval-ms: 5000
-    account-interval-ms: 3000
+    customer-interval-ms: 1000
+    account-interval-ms: 1000
     transaction-interval-ms: 500
     customer-id-range: 200
     account-id-range: 500
