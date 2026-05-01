@@ -115,9 +115,12 @@ flowchart TD
 
 ```bash
 ./gradlew :banking-lakehouse:generator:bootJar
+./gradlew :banking-lakehouse:spark:jar
 cd banking-lakehouse
 docker compose up -d --build
 ```
+
+`banking-lakehouse:spark` собирается локально, а Docker-образ Spark копирует готовый JAR из `banking-lakehouse/spark/build/libs/`.
 
 ---
 
@@ -139,14 +142,17 @@ docker compose up -d --build
 
 ```mermaid
 flowchart LR
-  C1["check_minio"] --> B["bronze_to_silver (3 parallel tasks)"]
-  C2["check_spark"] --> B
+  C1["check_minio"] --> I["spark_catalog_init"]
+  C2["check_spark"] --> I
+  I --> B["bronze_to_silver (3 parallel tasks)"]
   B --> G["silver_to_gold (5 parallel tasks)"]
   G --> Q["data_quality_check (Trino counts)"]
 ```
 
 Spark-job'ы запускаются через `DockerOperator` и `spark-submit` с единым набором Iceberg/S3-конфигов.
+Перед параллельным `bronze_to_silver` выполняется отдельный `spark_catalog_init`, чтобы избежать race condition при инициализации Iceberg JDBC catalog.
 
+![DAG](docs/airflow.png)
 ---
 
 ## 📊 Superset Dashboard
@@ -154,14 +160,16 @@ Spark-job'ы запускаются через `DockerOperator` и `spark-submit
 Dashboard: **Banking Analytics**
 
 В дашборде автоматически создаются 8 чартов:
-- Расходы по категориям (USD)
-- Тренд расходов по месяцам
-- RFM: клиенты по сегменту
-- Подозрительные транзакции
-- Денежный поток по месяцам
-- Cashflow: топ клиентов
-- Анализ каналов
-- Динамика каналов
+- Spending by Category (USD)
+- Monthly Spending Trend
+- RFM: Customers by Segment
+- Suspicious Transactions
+- Monthly Cashflow
+- Cashflow: Top Customers
+- Channel Analysis
+- Channel Trend
+
+![Superset](docs/superset.png)
 
 ---
 

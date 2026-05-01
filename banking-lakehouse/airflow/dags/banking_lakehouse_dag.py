@@ -77,17 +77,21 @@ def _run_trino_query(sql: str):
 
 
 def _data_quality_check():
-    marts = [
+    required_non_empty_marts = [
         "spending_by_category",
         "customer_segments",
-        "anomaly_flags",
         "monthly_cashflow",
         "channel_analysis",
     ]
-    for mart in marts:
+    for mart in required_non_empty_marts:
         rows = _run_trino_query(f"SELECT COUNT(*) FROM iceberg.gold.{mart}")
         if not rows or rows[0][0] == 0:
             raise RuntimeError(f"Data quality check failed: iceberg.gold.{mart} is empty")
+
+    # anomaly_flags can legitimately be empty when no anomalies are detected.
+    rows = _run_trino_query("SELECT COUNT(*) FROM iceberg.gold.anomaly_flags")
+    if not rows:
+        raise RuntimeError("Data quality check failed: iceberg.gold.anomaly_flags is unavailable")
 
 
 def _spark_submit(main_class: str, args: str) -> str:
@@ -104,6 +108,7 @@ with DAG(
     schedule_interval="@daily",
     start_date=datetime(2026, 1, 1),
     catchup=False,
+    max_active_runs=1,
     tags=["banking", "lakehouse", "spark", "iceberg"],
 ) as dag:
     check_minio = PythonOperator(
@@ -114,6 +119,15 @@ with DAG(
         task_id="check_spark",
         python_callable=lambda: _check_http("http://spark-master:8080"),
     )
+    spark_catalog_init = DockerOperator(
+        task_id="spark_catalog_init",
+        image=SPARK_IMAGE,
+        command=_spark_submit("com.example.banking.spark.CatalogInitJob", ""),
+        docker_url="unix://var/run/docker.sock",
+        network_mode=DOCKER_NETWORK,
+        mount_tmp_dir=False,
+        auto_remove=True,
+    )
 
     with TaskGroup(group_id="bronze_to_silver") as bronze_to_silver:
         spark_silver_customers = DockerOperator(
@@ -121,7 +135,7 @@ with DAG(
             image=SPARK_IMAGE,
             command=_spark_submit(
                 "com.example.banking.spark.BronzeToSilverJob",
-                "--table customers --wait-seconds 300 --wait-interval-seconds 10",
+                "--table customers --wait-seconds 120 --wait-interval-seconds 5",
             ),
             docker_url="unix://var/run/docker.sock",
             network_mode=DOCKER_NETWORK,
@@ -205,4 +219,4 @@ with DAG(
         python_callable=_data_quality_check,
     )
 
-    [check_minio, check_spark] >> bronze_to_silver >> silver_to_gold >> data_quality_check
+    [check_minio, check_spark] >> spark_catalog_init >> bronze_to_silver >> silver_to_gold >> data_quality_check

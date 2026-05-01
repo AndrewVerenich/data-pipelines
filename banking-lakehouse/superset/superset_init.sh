@@ -24,6 +24,10 @@ PASSWORD = "admin"
 DATABASE_NAME = "Trino Banking Lakehouse"
 SQLALCHEMY_URI = "trino://trino@trino:8080/iceberg/gold"
 SCHEMA = "gold"
+DB_RETRY_ATTEMPTS = 24
+DB_RETRY_DELAY_SECONDS = 5
+DATASET_RETRY_ATTEMPTS = 60
+DATASET_RETRY_DELAY_SECONDS = 10
 
 
 def request(path, method="GET", payload=None, token=None):
@@ -82,6 +86,24 @@ def find_by(items, key, value):
         if item.get(key) == value:
             return item
     return None
+
+
+def retry_with_backoff(action_name, fn, attempts=12, delay_seconds=5):
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return fn()
+        except Exception as exc:
+            last_error = exc
+            if attempt == attempts:
+                break
+            print(
+                f"{action_name} failed (attempt {attempt}/{attempts}): {exc}. "
+                f"Retrying in {delay_seconds}s...",
+                file=sys.stderr,
+            )
+            time.sleep(delay_seconds)
+    raise RuntimeError(f"{action_name} failed after {attempts} attempts") from last_error
 
 
 def ensure_database(token):
@@ -203,12 +225,14 @@ def metric(sql_expression, label):
 
 
 def build_timeseries_chart(token, title, dataset_id, date_column, metric_defs, groupby):
+    # Use a categorical monthly bar chart. It is more robust for this demo setup
+    # than time-series configs that depend on temporal column metadata in Superset.
+    columns = [date_column] + groupby
     params = {
         "datasource": f"{dataset_id}__table",
-        "viz_type": "echarts_timeseries_line",
-        "x_axis": date_column,
+        "viz_type": "dist_bar",
+        "groupby": columns,
         "metrics": metric_defs,
-        "groupby": groupby,
         "row_limit": 1000,
         "time_range": "No filter",
     }
@@ -217,19 +241,18 @@ def build_timeseries_chart(token, title, dataset_id, date_column, metric_defs, g
         "queries": [
             {
                 "time_range": "No filter",
-                "granularity": date_column,
-                "columns": groupby,
+                "columns": columns,
                 "metrics": metric_defs,
                 "orderby": [[metric_defs[0], False]] if metric_defs else [],
                 "row_limit": 1000,
-                "is_timeseries": True,
+                "is_timeseries": False,
             }
         ],
         "form_data": params,
         "result_format": "json",
         "result_type": "full",
     }
-    return ensure_chart(token, title, dataset_id, "echarts_timeseries_line", params, query_context)
+    return ensure_chart(token, title, dataset_id, "dist_bar", params, query_context)
 
 
 def build_dist_bar_chart(token, title, dataset_id, groupby, metric_defs):
@@ -291,21 +314,50 @@ def build_table_chart(token, title, dataset_id, groupby, metric_defs):
 
 wait_until_healthy()
 token = login()
-database_id = ensure_database(token)
+database_id = retry_with_backoff(
+    "Creating/reading Superset database connection",
+    lambda: ensure_database(token),
+    attempts=DB_RETRY_ATTEMPTS,
+    delay_seconds=DB_RETRY_DELAY_SECONDS,
+)
 
-datasets = {
-    "spending_by_category": ensure_dataset(token, database_id, SCHEMA, "spending_by_category"),
-    "customer_segments": ensure_dataset(token, database_id, SCHEMA, "customer_segments"),
-    "anomaly_flags": ensure_dataset(token, database_id, SCHEMA, "anomaly_flags"),
-    "monthly_cashflow": ensure_dataset(token, database_id, SCHEMA, "monthly_cashflow"),
-    "channel_analysis": ensure_dataset(token, database_id, SCHEMA, "channel_analysis"),
-}
+dataset_tables = [
+    "spending_by_category",
+    "customer_segments",
+    "anomaly_flags",
+    "monthly_cashflow",
+    "channel_analysis",
+]
+datasets = {}
+missing_datasets = []
+for table_name in dataset_tables:
+    try:
+        datasets[table_name] = retry_with_backoff(
+            f"Ensuring dataset {table_name}",
+            lambda t=table_name: ensure_dataset(token, database_id, SCHEMA, t),
+            attempts=DATASET_RETRY_ATTEMPTS,
+            delay_seconds=DATASET_RETRY_DELAY_SECONDS,
+        )
+    except Exception as exc:
+        missing_datasets.append(table_name)
+        print(
+            f"Dataset {table_name} is still unavailable after retries: {exc}",
+            file=sys.stderr,
+        )
+
+if missing_datasets:
+    print(
+        "Superset bootstrap deferred because datasets are missing: "
+        + ", ".join(missing_datasets),
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 chart_ids = []
 chart_ids.append(
     build_dist_bar_chart(
         token,
-        "Расходы по категориям (USD)",
+        "Spending by Category (USD)",
         datasets["spending_by_category"],
         ["category"],
         [metric("sum(total_amount)", "total_amount")],
@@ -314,7 +366,7 @@ chart_ids.append(
 chart_ids.append(
     build_timeseries_chart(
         token,
-        "Тренд расходов по месяцам",
+        "Monthly Spending Trend",
         datasets["spending_by_category"],
         "month",
         [metric("sum(total_amount)", "total_amount")],
@@ -324,7 +376,7 @@ chart_ids.append(
 chart_ids.append(
     build_dist_bar_chart(
         token,
-        "RFM: клиенты по сегменту",
+        "RFM: Customers by Segment",
         datasets["customer_segments"],
         ["segment"],
         [metric("count(customer_id)", "customers")],
@@ -333,7 +385,7 @@ chart_ids.append(
 chart_ids.append(
     build_table_chart(
         token,
-        "Подозрительные транзакции",
+        "Suspicious Transactions",
         datasets["anomaly_flags"],
         ["transaction_id", "account_id", "anomaly_reason"],
         [metric("max(amount)", "amount")],
@@ -342,7 +394,7 @@ chart_ids.append(
 chart_ids.append(
     build_timeseries_chart(
         token,
-        "Денежный поток по месяцам",
+        "Monthly Cashflow",
         datasets["monthly_cashflow"],
         "month",
         [
@@ -356,7 +408,7 @@ chart_ids.append(
 chart_ids.append(
     build_table_chart(
         token,
-        "Cashflow: топ клиентов",
+        "Cashflow: Top Customers",
         datasets["monthly_cashflow"],
         ["customer_id"],
         [metric("sum(net_cashflow)", "net_cashflow"), metric("sum(total_credit)", "total_credit")],
@@ -365,7 +417,7 @@ chart_ids.append(
 chart_ids.append(
     build_dist_bar_chart(
         token,
-        "Анализ каналов",
+        "Channel Analysis",
         datasets["channel_analysis"],
         ["channel"],
         [metric("sum(total_amount)", "total_amount"), metric("sum(tx_count)", "tx_count")],
@@ -374,7 +426,7 @@ chart_ids.append(
 chart_ids.append(
     build_timeseries_chart(
         token,
-        "Динамика каналов",
+        "Channel Trend",
         datasets["channel_analysis"],
         "month",
         [metric("sum(tx_count)", "tx_count")],
