@@ -11,4 +11,7 @@ include(
   "marketing-analytics-platform:event-producer",
   "banking-lakehouse:generator",
   "banking-lakehouse:spark",
+  "fraud-scoring-platform:generator",
+  "fraud-scoring-platform:ml-jobs",
+  "fraud-scoring-platform:scoring-service",
 )

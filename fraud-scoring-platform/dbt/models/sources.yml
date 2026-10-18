@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: raw_fraud
+    schema: fraud
+    tables:
+      - name: landing_transactions
+      - name: landing_labels
+      - name: landing_scores
+      - name: landing_users
+      - name: landing_merchants

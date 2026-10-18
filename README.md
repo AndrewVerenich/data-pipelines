@@ -11,6 +11,7 @@
 - **Стриминговая обработка с Flink** ([Clickstream Analytics](#clickstream-project)): stateful processing на Apache Flink (KeyedProcessFunction + ValueState + event-time timers), два broadcast-стрима (fraud rules и user segments), side outputs для dead-letter и fraud alerts, ClickHouse Kafka Engine + MV, Grafana.
 - **S3 Data Lakehouse** ([Banking](#s3-lakehouse-project)): Kafka → MinIO (S3) → **Spark + Iceberg** (Bronze / Silver / 
   Gold), SQL через **Trino**, **Airflow**, **Superset**.
+- **ML Fraud Scoring** ([Fraud Scoring](#fraud-scoring-project)): Kafka → ClickHouse (DWH + feature store) → **dbt** → **CatBoost** → Kotlin Spring Boot scoring → **Airflow**, Superset, Grafana.
 
 ## 🎯 Цель проекта
 
@@ -137,5 +138,23 @@ S3 Data Lakehouse для банковских транзакций: ingestion ч
 - ✅ Пять аналитических витрин: расходы, RFM-сегментация, аномалии, cashflow, каналы
 - ✅ Airflow DAG с послойным запуском Spark и data quality checks
 - ✅ Автоматический bootstrap Superset: дашборд «Banking Analytics»
+
+---
+
+<a id="fraud-scoring-project"></a>
+### 🛡️ [Payment Fraud Scoring Platform](./fraud-scoring-platform/README.md)
+
+**Стек:** Apache Kafka • ClickHouse • dbt • CatBoost • Kotlin / Spring Boot • Apache Airflow • Apache Superset • Grafana
+
+Antifraud ML-платформа: события платежей и лейблы в Kafka, dimensional DWH и **feature store** в ClickHouse, обучение CatBoost, online/batch scoring, мониторинг fraud ops и качества модели.
+
+**Ключевые возможности:**
+- ✅ Kafka Engine + MV → landing; dbt-слои staging → dims → facts → **features** → marts
+- ✅ Star schema + SCD Type 2 (`dim_user`), point-in-time velocity-фичи
+- ✅ CatBoost с native categoricals, time-based split, versioned model registry (Docker volume) + promotion gate
+- ✅ Kotlin Spring Boot near-real-time `/score` + batch score в Kafka (`ALLOW` / `CHALLENGE` / `BLOCK`)
+- ✅ Airflow DAG: dbt layers → train → score → refresh marts
+- ✅ Superset «Fraud Scoring Ops» + Grafana «Fraud Model Health»
+- ✅ Docker Compose one-command demo с синтетическими fraud patterns
 
 ---

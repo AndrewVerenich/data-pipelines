@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: stg_transactions
+    columns:
+      - name: transaction_id
+        tests: [not_null, unique]
+      - name: user_id
+        tests: [not_null]
+      - name: amount
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: false
+  - name: stg_labels
+    columns:
+      - name: transaction_id
+        tests: [not_null, unique]
+      - name: is_fraud
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+  - name: stg_scores
+    columns:
+      - name: transaction_id
+        tests: [not_null]
+      - name: score
+        tests: [not_null]
+  - name: stg_users
+    columns:
+      - name: user_id
+        tests: [not_null, unique]
+  - name: stg_merchants
+    columns:
+      - name: merchant_id
+        tests: [not_null, unique]

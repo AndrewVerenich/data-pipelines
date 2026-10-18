@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: fct_transactions
+    columns:
+      - name: transaction_id
+        tests: [not_null, unique]
+      - name: transaction_sk
+        tests: [not_null]
+      - name: amount
+        tests: [not_null]
+  - name: fct_fraud_labels
+    columns:
+      - name: transaction_id
+        tests: [not_null, unique]
+  - name: fct_fraud_scores
+    columns:
+      - name: transaction_id
+        tests: [not_null]
+      - name: model_version
+        tests: [not_null]

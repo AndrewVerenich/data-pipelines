@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: mart_fraud_ops
+    description: Daily fraud ops metrics by channel and MCC
+  - name: mart_model_performance
+    description: Threshold precision/recall by day and model version
+  - name: mart_feature_drift
+    description: Recent vs baseline relative shifts for key numeric features
+  - name: mart_high_risk_segments
+    description: High-risk merchants and users by score / confirmed fraud
+  - name: mart_label_lag
+    description: Label coverage and chargeback-style lag

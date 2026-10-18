@@ -1,0 +1,42 @@
+numeric_features:
+  - amount
+  - user_tx_cnt_1h
+  - user_tx_cnt_24h
+  - user_tx_cnt_7d
+  - user_amount_sum_24h
+  - user_unique_merchants_7d
+  - user_unique_devices_30d
+  - user_declines_24h
+  - amount_zscore_user
+  - amount_vs_user_p95
+  - device_tx_cnt_1h
+  - is_new_device
+  - is_new_device_30d
+  - merchant_tx_velocity_1h
+  - merchant_risk_score
+  - is_new_pm_7d
+  - pm_tx_cnt_7d
+  - is_foreign_ip
+  - is_cross_border
+  - is_3ds
+  - seconds_since_prev_tx
+
+categorical_features:
+  - cat_mcc
+  - cat_channel
+  - cat_ip_country
+  - cat_merchant_country
+  - cat_device_os
+  - cat_hour_of_day
+  - cat_day_of_week
+  - cat_risk_tier
+  - cat_kyc_level
+  - cat_currency
+
+label_column: label_is_fraud
+id_column: transaction_id
+time_column: event_ts
+
+decision_thresholds:
+  block: 0.9
+  challenge: 0.7

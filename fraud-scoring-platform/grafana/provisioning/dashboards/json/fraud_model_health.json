@@ -1,0 +1,103 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Model AUC (train runs)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${ds}" },
+      "targets": [
+        {
+          "rawSql": "SELECT trained_at AS time, auc FROM fraud.ml_train_metrics ORDER BY trained_at",
+          "format": 1,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] }
+    },
+    {
+      "title": "PR-AUC",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "rawSql": "SELECT trained_at AS time, pr_auc FROM fraud.ml_train_metrics ORDER BY trained_at",
+          "format": 1,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Scores per minute",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "rawSql": "SELECT toStartOfMinute(scored_at) AS time, count() AS scores FROM fraud.landing_scores WHERE scored_at > now() - INTERVAL 6 HOUR GROUP BY time ORDER BY time",
+          "format": 1,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Decision mix (6h)",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "rawSql": "SELECT decision, count() AS c FROM fraud.landing_scores WHERE scored_at > now() - INTERVAL 6 HOUR GROUP BY decision",
+          "format": 1,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Feature drift — amount relative shift",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "rawSql": "SELECT amount_rel_shift FROM fraud.mart_feature_drift LIMIT 1",
+          "format": 1,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Feature drift — velocity 1h shift",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 16 },
+      "targets": [
+        {
+          "rawSql": "SELECT user_tx_cnt_1h_rel_shift FROM fraud.mart_feature_drift LIMIT 1",
+          "format": 1,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Landing transactions (total)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 16 },
+      "targets": [
+        {
+          "rawSql": "SELECT count() FROM fraud.landing_transactions",
+          "format": 1,
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["fraud", "catboost"],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "title": "Fraud Model Health",
+  "uid": "fraud-model-health",
+  "version": 1
+}

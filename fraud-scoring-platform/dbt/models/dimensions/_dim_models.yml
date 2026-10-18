@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: dim_user
+    columns:
+      - name: user_sk
+        tests: [not_null, unique]
+      - name: user_id
+        tests: [not_null]
+      - name: is_current
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+  - name: dim_merchant
+    columns:
+      - name: merchant_sk
+        tests: [not_null, unique]
+  - name: dim_device
+    columns:
+      - name: device_sk
+        tests: [not_null, unique]
+  - name: dim_payment_method
+    columns:
+      - name: payment_method_sk
+        tests: [not_null, unique]
+  - name: dim_date
+    columns:
+      - name: date_sk
+        tests: [not_null, unique]

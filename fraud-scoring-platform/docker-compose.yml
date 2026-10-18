@@ -1,0 +1,262 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [my-network]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks: [my-network]
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./scripts/kafka-init-topics.sh:/run.sh:ro
+    entrypoint: ["bash", "/run.sh"]
+    networks: [my-network]
+
+  kafka-ui:
+    image: redpandadata/console:v3.3.1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports: ["8088:8080"]
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+    networks: [my-network]
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse/clickhouse-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      CLICKHOUSE_USER: admin
+      CLICKHOUSE_PASSWORD: admin123
+      CLICKHOUSE_DB: fraud
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8123/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [my-network]
+
+  generator:
+    build:
+      context: ..
+      dockerfile: fraud-scoring-platform/generator/Dockerfile
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      clickhouse:
+        condition: service_healthy
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_BOOTSTRAP: kafka:9092
+      BACKFILL_DAYS: 14
+      BACKFILL_TX: 12000
+      FRAUD_RATE: 0.04
+      STREAM_INTERVAL_MS: 400
+    restart: unless-stopped
+    networks: [my-network]
+
+  # Image-only services for Airflow DockerOperator (build on up --build, exit immediately)
+  dbt:
+    build: ./dbt
+    image: fraud-scoring-platform-dbt:latest
+    command: ["--version"]
+    restart: "no"
+    networks: [my-network]
+
+  ml-jobs:
+    build:
+      context: ..
+      dockerfile: fraud-scoring-platform/ml-jobs/Dockerfile
+    image: fraud-scoring-platform-ml:latest
+    entrypoint: ["echo"]
+    command: ["fraud-ml-jobs image ready"]
+    restart: "no"
+    volumes:
+      - model-registry:/models
+    networks: [my-network]
+
+  bootstrap:
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile.bootstrap
+    depends_on:
+      generator:
+        condition: service_started
+      clickhouse:
+        condition: service_healthy
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_USER: admin
+      CLICKHOUSE_PASSWORD: admin123
+      MODEL_ROOT: /models/fraud-models
+      KAFKA_BOOTSTRAP: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      CATBOOST_BIN: /usr/local/bin/catboost
+      CATBOOST_ITERATIONS: 200
+      CLICKHOUSE_JDBC: jdbc:clickhouse://clickhouse:8123/fraud
+    volumes:
+      - model-registry:/models
+    networks: [my-network]
+
+  scoring-service:
+    build:
+      context: ..
+      dockerfile: fraud-scoring-platform/scoring-service/Dockerfile
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_BOOTSTRAP: kafka:9092
+      MODEL_ROOT: /models/fraud-models
+      CLICKHOUSE_JDBC: jdbc:clickhouse://clickhouse:8123/fraud
+      CLICKHOUSE_USER: admin
+      CLICKHOUSE_PASSWORD: admin123
+    volumes:
+      - model-registry:/models:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks: [my-network]
+
+  airflow-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [my-network]
+
+  airflow:
+    build: ./airflow
+    user: root
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      PYTHONPATH: /home/airflow/.local/lib/python3.8/site-packages
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8081:8080"
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        airflow db migrate
+        airflow users create \
+          --username admin \
+          --firstname Air \
+          --lastname Flow \
+          --role Admin \
+          --email admin@example.com \
+          --password admin || true
+        airflow webserver --port 8080 &
+        exec airflow scheduler
+    networks: [my-network]
+
+  superset:
+    build: ./superset
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      clickhouse:
+        condition: service_healthy
+    environment:
+      SUPERSET_CONFIG_PATH: /app/superset_home/superset_config.py
+    ports:
+      - "8090:8088"
+    volumes:
+      - superset-home:/app/superset_home
+    networks: [my-network]
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    networks: [my-network]
+
+volumes:
+  clickhouse-data:
+  model-registry:
+  superset-home:
+  grafana-data:
+
+networks:
+  my-network:

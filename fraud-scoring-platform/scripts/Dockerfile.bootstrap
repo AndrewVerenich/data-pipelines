@@ -1,0 +1,36 @@
+FROM python:3.11-slim
+
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    openjdk-21-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+# CatBoost CLI for training invoked by Kotlin ml-jobs jar
+RUN curl -fsSL -o /usr/local/bin/catboost \
+      https://github.com/catboost/catboost/releases/download/v1.2.5/catboost-linux-x86_64-1.2.5 \
+    && chmod +x /usr/local/bin/catboost
+
+RUN pip install --no-cache-dir \
+    dbt-core==1.10.15 \
+    dbt-clickhouse==1.9.2
+
+WORKDIR /usr/app
+COPY dbt/dbt_project.yml dbt/packages.yml ./
+COPY dbt/models ./models
+COPY dbt/macros ./macros
+COPY dbt/seeds ./seeds
+COPY dbt/tests ./tests
+COPY dbt/profiles.yml /root/.dbt/profiles.yml
+RUN dbt deps
+
+COPY ml-jobs/build/libs/fraud-ml-jobs-1.0.0.jar /ml/fraud-ml-jobs-1.0.0.jar
+COPY scripts/bootstrap.sh /bootstrap.sh
+RUN chmod +x /bootstrap.sh
+
+ENV MODEL_ROOT=/models/fraud-models
+ENV CATBOOST_BIN=/usr/local/bin/catboost
+ENV CLICKHOUSE_JDBC=jdbc:clickhouse://clickhouse:8123/fraud
+
+ENTRYPOINT ["bash", "/bootstrap.sh"]
