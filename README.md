@@ -11,6 +11,7 @@
 - **Стриминговая обработка с Flink** ([Clickstream Analytics](#clickstream-project)): stateful processing на Apache Flink (KeyedProcessFunction + ValueState + event-time timers), два broadcast-стрима (fraud rules и user segments), side outputs для dead-letter и fraud alerts, ClickHouse Kafka Engine + MV, Grafana.
 - **S3 Data Lakehouse** ([Banking](#s3-lakehouse-project)): Kafka → MinIO (S3) → **Spark + Iceberg** (Bronze / Silver / 
   Gold), SQL через **Trino**, **Airflow**, **Superset**.
+- **Платформа экспериментов** ([A/B](#ab-project)): назначение варианта, экспозиции и исходы в ClickHouse, SRM, CUPED и решение ship / stop / hold.
 
 ## 🎯 Цель проекта
 
@@ -137,5 +138,21 @@ S3 Data Lakehouse для банковских транзакций: ingestion ч
 - ✅ Пять аналитических витрин: расходы, RFM-сегментация, аномалии, cashflow, каналы
 - ✅ Airflow DAG с послойным запуском Spark и data quality checks
 - ✅ Автоматический bootstrap Superset: дашборд «Banking Analytics»
+
+---
+
+<a id="ab-project"></a>
+### 🧪 [A/B Experiments Platform](./ab-experiments-platform/README.md)
+
+**Стек:** PostgreSQL • Kotlin / Spring Boot • Apache Kafka • ClickHouse • Grafana
+
+Платформа A/B-экспериментов для checkout: конфиг в Postgres, детерминированный бакетинг, экспозиции и исходы через Kafka, user-level факты в ClickHouse и статистическое решение на Grafana.
+
+**Ключевые возможности:**
+- ✅ Sticky assignment: MurmurHash3, веса вариантов, идемпотентная первая экспозиция
+- ✅ Три демо-эксперимента с заложенным эффектом: ship, stop по guardrail, A/A hold
+- ✅ ClickHouse: Kafka Engine + Materialized Views, окно атрибуции, предэкспериментальная выручка
+- ✅ Wald-интервал, SRM (хи-квадрат) и CUPED для выручки
+- ✅ Grafana: решение, лифт, дневная конверсия control против treatment
 
 ---

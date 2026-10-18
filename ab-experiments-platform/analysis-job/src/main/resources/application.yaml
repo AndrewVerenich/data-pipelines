@@ -1,0 +1,18 @@
+spring:
+  main:
+    web-application-type: none
+  datasource:
+    url: jdbc:postgresql://localhost:54329/ab
+    username: admin
+    password: admin123
+
+ab:
+  clickhouse-url: http://localhost:8129
+  clickhouse-user: admin
+  clickhouse-password: admin123
+  interval-ms: 60000
+  initial-delay-ms: 5000
+
+logging:
+  level:
+    com.example.ab: INFO

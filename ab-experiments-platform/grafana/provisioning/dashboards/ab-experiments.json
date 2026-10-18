@@ -1,0 +1,73 @@
+{
+  "uid": "ab-experiments",
+  "title": "A/B experiments",
+  "tags": ["ab", "experiments"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "version": 1,
+  "time": { "from": "now-15d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Decisions",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ab" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ab" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT experiment_key, argMax(decision, computed_at) AS decision, argMax(control_n, computed_at) AS control_n, argMax(treatment_n, computed_at) AS treatment_n, round(argMax(srm_p_value, computed_at), 4) AS srm_p_value, round(argMax(lift, computed_at), 4) AS conversion_lift, round(argMax(p_value, computed_at), 4) AS conversion_p_value FROM ab.experiment_results WHERE metric_key = 'conversion' GROUP BY experiment_key ORDER BY experiment_key",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 2,
+      "title": "Metrics",
+      "type": "table",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ab" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ab" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT experiment_key, metric_key, argMax(role, computed_at) AS role, round(argMax(control_mean, computed_at), 4) AS control_mean, round(argMax(treatment_mean, computed_at), 4) AS treatment_mean, round(argMax(lift, computed_at), 4) AS lift, round(argMax(ci_low, computed_at), 4) AS ci_low, round(argMax(ci_high, computed_at), 4) AS ci_high, round(argMax(p_value, computed_at), 4) AS p_value, round(argMax(cuped_lift, computed_at), 4) AS cuped_lift, round(argMax(cuped_p_value, computed_at), 4) AS cuped_p_value FROM ab.experiment_results GROUP BY experiment_key, metric_key ORDER BY experiment_key, metric_key",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 3,
+      "title": "checkout_cta daily conversion",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 17 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ab" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 0.5 } },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ab" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT toStartOfDay(exposed_at) AS time, variant_key, avg(converted) AS value FROM ab.user_level WHERE experiment_key = 'checkout_cta' GROUP BY time, variant_key ORDER BY time",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 4,
+      "title": "Refund rate by experiment",
+      "type": "table",
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 17 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ab" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-ab" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT experiment_key, variant_key, round(avg(refunded), 4) AS refund_rate, count() AS users FROM ab.user_level GROUP BY experiment_key, variant_key ORDER BY experiment_key, variant_key",
+        "refId": "A"
+      }]
+    }
+  ]
+}

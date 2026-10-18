@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+ab:
+  assignment-url: http://localhost:8092
+  clickhouse-url: http://localhost:8129
+  clickhouse-user: admin
+  clickhouse-password: admin123
+  outcomes-topic: ab.outcomes
+  live-interval-ms: 2000
+
+logging:
+  level:
+    com.example.ab: INFO
+    org.springframework.kafka: WARN

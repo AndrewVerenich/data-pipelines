@@ -11,4 +11,8 @@ include(
   "marketing-analytics-platform:event-producer",
   "banking-lakehouse:generator",
   "banking-lakehouse:spark",
+  "ab-experiments-platform:platform-lib",
+  "ab-experiments-platform:assignment-service",
+  "ab-experiments-platform:traffic-simulator",
+  "ab-experiments-platform:analysis-job",
 )

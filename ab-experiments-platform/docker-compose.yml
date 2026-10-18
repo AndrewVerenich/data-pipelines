@@ -1,0 +1,178 @@
+name: ab-experiments
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ab
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "54329:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d ab"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 40s
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command: >
+      -c "
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic ab.exposures --partitions 3 --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic ab.outcomes --partitions 3 --replication-factor 1 &&
+        echo 'topics ready'
+      "
+
+  kafka-ui:
+    image: redpandadata/console:v3.3.1
+    ports:
+      - "8093:8080"
+    environment:
+      KAFKA_BROKERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    ports:
+      - "8129:8123"
+      - "9019:9000"
+    environment:
+      CLICKHOUSE_USER: admin
+      CLICKHOUSE_PASSWORD: admin123
+      CLICKHOUSE_DB: ab
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse/01-raw.sql:/docker-entrypoint-initdb.d/01-raw.sql
+      - ./clickhouse/02-user-level.sql:/docker-entrypoint-initdb.d/02-user-level.sql
+      - ./clickhouse/03-results.sql:/docker-entrypoint-initdb.d/03-results.sql
+      - ./clickhouse/kafka.xml:/etc/clickhouse-server/config.d/kafka.xml
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--user", "admin", "--password", "admin123", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  assignment-service:
+    build: ./assignment-service
+    ports:
+      - "8092:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ab
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: on-failure
+
+  traffic-simulator:
+    build: ./traffic-simulator
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      AB_ASSIGNMENT_URL: http://assignment-service:8080
+      AB_CLICKHOUSE_URL: http://clickhouse:8123
+      AB_CLICKHOUSE_USER: admin
+      AB_CLICKHOUSE_PASSWORD: admin123
+    depends_on:
+      assignment-service:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 40s
+    restart: on-failure
+
+  analysis-job:
+    build: ./analysis-job
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ab
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+      AB_CLICKHOUSE_URL: http://clickhouse:8123
+      AB_CLICKHOUSE_USER: admin
+      AB_CLICKHOUSE_PASSWORD: admin123
+    depends_on:
+      traffic-simulator:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    restart: on-failure
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    ports:
+      - "3009:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: grafana-clickhouse-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ../iot-pipeline/grafana/plugins:/var/lib/grafana/plugins:ro
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  clickhouse-data:
+  grafana-data:
