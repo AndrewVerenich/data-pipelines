@@ -15,4 +15,5 @@ include(
   "ab-experiments-platform:assignment-service",
   "ab-experiments-platform:traffic-simulator",
   "ab-experiments-platform:analysis-job",
+  "logistics-control-tower:trip-simulator",
 )

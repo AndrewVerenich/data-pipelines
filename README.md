@@ -12,6 +12,7 @@
 - **S3 Data Lakehouse** ([Banking](#s3-lakehouse-project)): Kafka → MinIO (S3) → **Spark + Iceberg** (Bronze / Silver / 
   Gold), SQL через **Trino**, **Airflow**, **Superset**.
 - **Платформа экспериментов** ([A/B](#ab-project)): назначение варианта, экспозиции и исходы в ClickHouse, SRM, CUPED и решение ship / stop / hold.
+- **Логистический control tower** ([Logistics](#logistics-project)): GPS-пинги рейсов в Kafka, H3 и SLA-витрины в ClickHouse, карта и нарушители SLA в Grafana.
 
 ## 🎯 Цель проекта
 
@@ -154,5 +155,21 @@ S3 Data Lakehouse для банковских транзакций: ingestion ч
 - ✅ ClickHouse: Kafka Engine + Materialized Views, окно атрибуции, предэкспериментальная выручка
 - ✅ Wald-интервал, SRM (хи-квадрат) и CUPED для выручки
 - ✅ Grafana: решение, лифт, дневная конверсия control против treatment
+
+---
+
+<a id="logistics-project"></a>
+### 🚚 [Logistics Control Tower](./logistics-control-tower/README.md)
+
+**Стек:** Kotlin / Spring Boot • Apache Kafka • ClickHouse • Grafana
+
+Операционный контур last-mile: симулятор рейсов пишет GPS и lifecycle-события в Kafka, ClickHouse считает гексагоны H3 и SLA, Grafana показывает карту и рейсы вне SLA.
+
+**Ключевые возможности:**
+- ✅ Симулятор: GPS-пинги, 4 склада с геозонами, простой у склада, опоздания
+- ✅ Ingestion через Kafka Engine + Materialized Views
+- ✅ H3 (resolution 9) и плотность спроса по 15-минутным окнам
+- ✅ Витрины: ETA / late_sec, SLA breaches, warehouse dwell, активные позиции
+- ✅ Grafana: geomap, таблица нарушителей SLA, H3 density
 
 ---

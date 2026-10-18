@@ -1,0 +1,243 @@
+{
+  "uid": "logistics-control-tower",
+  "title": "Logistics Control Tower",
+  "tags": ["logistics", "sla", "h3"],
+  "timezone": "browser",
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "version": 1,
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active trips",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT active_trips FROM logistics.v_ops_summary",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 2,
+      "title": "SLA breaches",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT sla_breaches FROM logistics.v_ops_summary",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 3,
+      "title": "On-time rate",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT on_time_rate FROM logistics.v_ops_summary",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 4,
+      "title": "Avg warehouse dwell",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT avg_dwell_sec FROM logistics.v_ops_summary",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 5,
+      "title": "Live map — active positions",
+      "type": "geomap",
+      "gridPos": { "h": 14, "w": 14, "x": 0, "y": 4 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+      "options": {
+        "view": {
+          "allLayers": true,
+          "id": "coords",
+          "lat": 53.9,
+          "lon": 27.56,
+          "zoom": 11
+        },
+        "controls": {
+          "showZoom": true,
+          "mouseWheelZoom": true,
+          "showAttribution": true
+        },
+        "basemap": {
+          "type": "default",
+          "name": "Layer 0",
+          "config": {}
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Trips",
+            "config": {
+              "style": {
+                "size": { "fixed": 6, "min": 2, "max": 15 },
+                "color": { "field": "sla_breached", "fixed": "dark-green" },
+                "opacity": 0.9
+              }
+            },
+            "location": {
+              "mode": "coords",
+              "latitude": "lat",
+              "longitude": "lon"
+            },
+            "tooltip": true
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "color": "green", "text": "OK" }, "1": { "color": "red", "text": "SLA" } } }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT lat, lon, trip_id, courier_id, warehouse_id, last_event, toUInt8(sla_breached) AS sla_breached, late_sec, dwell_sec FROM logistics.v_active_positions WHERE lat != 0 AND lon != 0",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 6,
+      "title": "Trips outside SLA",
+      "type": "table",
+      "gridPos": { "h": 14, "w": 10, "x": 14, "y": 4 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT trip_id, courier_id, warehouse_id, promised_eta, delivered_at, late_sec, last_event FROM logistics.v_sla_breaches LIMIT 50",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 7,
+      "title": "Long warehouse dwell (≥10 min)",
+      "type": "table",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 18 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT trip_id, courier_id, warehouse_id, dwell_sec, last_event FROM logistics.v_warehouse_dwell WHERE long_dwell = 1 LIMIT 40",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 8,
+      "title": "H3 demand density (60m)",
+      "type": "table",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 18 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT h3_index, pings, round(lat, 5) AS lat, round(lon, 5) AS lon FROM logistics.v_h3_demand_recent LIMIT 40",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 9,
+      "title": "H3 demand map",
+      "type": "geomap",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 27 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+      "options": {
+        "view": {
+          "allLayers": true,
+          "id": "coords",
+          "lat": 53.9,
+          "lon": 27.56,
+          "zoom": 11
+        },
+        "controls": {
+          "showZoom": true,
+          "mouseWheelZoom": true
+        },
+        "basemap": { "type": "default", "name": "Layer 0", "config": {} },
+        "layers": [
+          {
+            "type": "heatmap",
+            "name": "H3 pings",
+            "config": {
+              "weight": { "fixed": 1, "field": "pings" },
+              "blur": 10,
+              "radius": 20
+            },
+            "location": {
+              "mode": "coords",
+              "latitude": "lat",
+              "longitude": "lon"
+            }
+          }
+        ]
+      },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-logistics" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT lat, lon, pings FROM logistics.v_h3_demand_recent",
+        "refId": "A"
+      }]
+    }
+  ]
+}

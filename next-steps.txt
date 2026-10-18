@@ -19,18 +19,7 @@ Next steps
 - Дашборд Superset по активным экспериментам
 
 
-Логистический control tower
-
-Стек: Kotlin / Spring Boot, Apache Kafka, ClickHouse, Grafana
-
-Операционный контур доставки: симулятор рейсов пишет GPS-пинги в Kafka, ClickHouse собирает гексагоны H3 и SLA-витрины, Grafana показывает карту и рейсы вне SLA.
-
-Ключевые возможности:
-- Симулятор рейсов: пинги GPS, склады, геозоны, простой, опоздания
-- Ingestion из Kafka через Kafka Engine + Materialized Views
-- Гексагоны H3 и маршрутные агрегаты в ClickHouse
-- Витрины: ETA, рейсы вне SLA, простой у склада, плотность спроса по гексагонам
-- Grafana: geomap и таблица рейсов с нарушением SLA
+DONE: Логистический control tower → ./logistics-control-tower/
 
 
 Reverse ETL: брошенная корзина

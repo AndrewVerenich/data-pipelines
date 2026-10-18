@@ -70,3 +70,9 @@ project(":ab-experiments-platform:analysis-job") {
     apply(plugin = "org.springframework.boot")
     apply(plugin = "io.spring.dependency-management")
 }
+
+project(":logistics-control-tower:trip-simulator") {
+    apply(plugin = "org.jetbrains.kotlin.plugin.spring")
+    apply(plugin = "org.springframework.boot")
+    apply(plugin = "io.spring.dependency-management")
+}
