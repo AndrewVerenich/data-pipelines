@@ -1,0 +1,19 @@
+name: 'retl_abandoned_checkout'
+version: '1.0'
+profile: 'clickhouse_profile'
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+models:
+  retl_abandoned_checkout:
+    staging:
+      materialized: view
+      tags: ['staging']
+    intermediate:
+      materialized: view
+      tags: ['intermediate']
+    marts:
+      materialized: table
+      tags: ['marts']

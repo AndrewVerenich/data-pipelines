@@ -13,6 +13,7 @@
   Gold), SQL через **Trino**, **Airflow**, **Superset**.
 - **Платформа экспериментов** ([A/B](#ab-project)): назначение варианта, экспозиции и исходы в ClickHouse, SRM, CUPED и решение ship / stop / hold.
 - **Логистический control tower** ([Logistics](#logistics-project)): GPS-пинги рейсов в Kafka, H3 и SLA-витрины в ClickHouse, карта и нарушители SLA в Grafana.
+- **Reverse ETL** ([Abandoned Checkout](#reverse-etl-project)): витрина desired membership → diff → доставка enter/leave/update в email API.
 
 ## 🎯 Цель проекта
 
@@ -171,5 +172,23 @@ S3 Data Lakehouse для банковских транзакций: ingestion ч
 - ✅ H3 (resolution 9) и плотность спроса по 15-минутным окнам
 - ✅ Витрины: ETA / late_sec, SLA breaches, warehouse dwell, активные позиции
 - ✅ Grafana: geomap, таблица нарушителей SLA, H3 density
+
+---
+
+<a id="reverse-etl-project"></a>
+### 🔁 [Reverse ETL · Abandoned Checkout](./reverse-etl-abandoned-checkout/README.md)
+
+**Стек:** Kotlin / Spring Boot • Apache Kafka • ClickHouse • dbt • Apache Airflow • PostgreSQL • Grafana
+
+Активация аудитории «бросил оформление»: dbt считает желаемое членство, sync-worker строит changelog и доставляет enter / leave / update в мок email-сервиса с идемпотентностью и DLQ.
+
+**Ключевые возможности:**
+- ✅ Генератор воронки: view → cart → checkout → purchase, late events, битый email
+- ✅ Ingestion через Kafka Engine + Materialized Views
+- ✅ dbt: профиль клиента и mart `audience_abandoned_checkout`
+- ✅ Sync changelog относительно PostgreSQL membership snapshot
+- ✅ Идемпотентность `(user_id, audience, action, version)` и dead-letter на 429/422
+- ✅ Airflow: dbt run/test → HTTP sync
+- ✅ Grafana: лаг синка, пачки, ошибки, DLQ, размер аудитории
 
 ---

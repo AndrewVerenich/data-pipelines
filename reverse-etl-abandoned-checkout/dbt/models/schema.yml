@@ -1,0 +1,17 @@
+version: 2
+
+models:
+  - name: stg_commerce_events
+    columns:
+      - name: event_id
+        tests: [not_null]
+      - name: user_id
+        tests: [not_null]
+  - name: audience_abandoned_checkout
+    columns:
+      - name: user_id
+        tests: [not_null, unique]
+      - name: version
+        tests: [not_null]
+      - name: email
+        tests: [not_null]

@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:54330/retl
+    username: admin
+    password: admin123
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+retl:
+  sync:
+    audience: abandoned_checkout
+    clickhouse-url: http://localhost:8131
+    clickhouse-user: admin
+    clickhouse-password: admin123
+    email-api-url: http://localhost:8098
+    batch-size: 50
+    interval-ms: 30000
+    initial-delay-ms: 25000
+    mart-table: retl.audience_abandoned_checkout
+
+logging:
+  level:
+    com.example.retl: INFO

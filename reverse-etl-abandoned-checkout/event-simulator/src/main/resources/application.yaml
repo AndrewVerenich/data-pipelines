@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+retl:
+  events-topic: commerce.events
+  active-users: 80
+  tick-ms: 4000
+  backfill-hours: 6
+  abandon-window-hours: 24
+  grace-minutes: 30
+
+logging:
+  level:
+    com.example.retl: INFO
+    org.springframework.kafka: WARN

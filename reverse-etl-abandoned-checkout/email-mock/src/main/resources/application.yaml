@@ -1,0 +1,21 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:54330/retl
+    username: admin
+    password: admin123
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+email-mock:
+  rate-limit-probability: 0.08
+
+logging:
+  level:
+    com.example.retl: INFO

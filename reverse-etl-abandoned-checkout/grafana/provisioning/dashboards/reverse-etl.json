@@ -1,0 +1,147 @@
+{
+  "uid": "reverse-etl-checkout",
+  "title": "Reverse ETL · Abandoned Checkout",
+  "tags": ["reverse-etl", "commerce"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "version": 1,
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Desired audience size",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-retl" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-retl" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT count() AS value FROM retl.audience_abandoned_checkout",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 2,
+      "title": "Active membership (Postgres)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "postgres-retl" },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgres-retl" },
+        "format": "table",
+        "rawSql": "SELECT count(*)::bigint AS value FROM membership_snapshot WHERE audience = 'abandoned_checkout' AND status = 'active'",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 3,
+      "title": "Last sync lag (sec)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "postgres-retl" },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgres-retl" },
+        "format": "table",
+        "rawSql": "SELECT coalesce(lag_sec, 0)::bigint AS value FROM sync_runs WHERE status = 'success' ORDER BY finished_at DESC NULLS LAST LIMIT 1",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 4,
+      "title": "DLQ open",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "postgres-retl" },
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }] } } },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgres-retl" },
+        "format": "table",
+        "rawSql": "SELECT count(*)::bigint AS value FROM dead_letter WHERE resolved = false",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 5,
+      "title": "Sync batch: enter / leave / update",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "postgres", "uid": "postgres-retl" },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgres-retl" },
+        "format": "time_series",
+        "rawSql": "SELECT finished_at AS time, enters AS enter, leaves AS leave, updates AS update FROM sync_runs WHERE status = 'success' AND finished_at IS NOT NULL ORDER BY time",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 6,
+      "title": "Delivered vs dead-letter per run",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "postgres", "uid": "postgres-retl" },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgres-retl" },
+        "format": "time_series",
+        "rawSql": "SELECT finished_at AS time, delivered, dead_letters FROM sync_runs WHERE status = 'success' AND finished_at IS NOT NULL ORDER BY time",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 7,
+      "title": "Email API outcomes",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "postgres", "uid": "postgres-retl" },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgres-retl" },
+        "format": "time_series",
+        "rawSql": "SELECT date_trunc('minute', created_at) AS time, outcome, count(*)::bigint AS value FROM email_api_calls GROUP BY 1, 2 ORDER BY 1",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 8,
+      "title": "Idempotent replays (duplicate keys accepted)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "postgres", "uid": "postgres-retl" },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgres-retl" },
+        "format": "table",
+        "rawSql": "SELECT count(*)::bigint AS value FROM email_api_calls WHERE outcome = 'duplicate'",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 9,
+      "title": "Recent dead-letter",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+      "datasource": { "type": "postgres", "uid": "postgres-retl" },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgres-retl" },
+        "format": "table",
+        "rawSql": "SELECT created_at, user_id, action, http_status, left(error, 120) AS error FROM dead_letter WHERE resolved = false ORDER BY created_at DESC LIMIT 50",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 10,
+      "title": "Audience sample (desired state)",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 28 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-retl" },
+      "targets": [{
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-retl" },
+        "editorType": "sql",
+        "format": 1,
+        "queryType": "sql",
+        "rawSql": "SELECT user_id, email, cart_value, version, checkout_at FROM retl.audience_abandoned_checkout ORDER BY checkout_at DESC LIMIT 40",
+        "refId": "A"
+      }]
+    }
+  ]
+}

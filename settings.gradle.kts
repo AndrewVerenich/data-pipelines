@@ -16,4 +16,7 @@ include(
   "ab-experiments-platform:traffic-simulator",
   "ab-experiments-platform:analysis-job",
   "logistics-control-tower:trip-simulator",
+  "reverse-etl-abandoned-checkout:event-simulator",
+  "reverse-etl-abandoned-checkout:email-mock",
+  "reverse-etl-abandoned-checkout:sync-worker",
 )

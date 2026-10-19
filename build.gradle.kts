@@ -76,3 +76,21 @@ project(":logistics-control-tower:trip-simulator") {
     apply(plugin = "org.springframework.boot")
     apply(plugin = "io.spring.dependency-management")
 }
+
+project(":reverse-etl-abandoned-checkout:event-simulator") {
+    apply(plugin = "org.jetbrains.kotlin.plugin.spring")
+    apply(plugin = "org.springframework.boot")
+    apply(plugin = "io.spring.dependency-management")
+}
+
+project(":reverse-etl-abandoned-checkout:email-mock") {
+    apply(plugin = "org.jetbrains.kotlin.plugin.spring")
+    apply(plugin = "org.springframework.boot")
+    apply(plugin = "io.spring.dependency-management")
+}
+
+project(":reverse-etl-abandoned-checkout:sync-worker") {
+    apply(plugin = "org.jetbrains.kotlin.plugin.spring")
+    apply(plugin = "org.springframework.boot")
+    apply(plugin = "io.spring.dependency-management")
+}

@@ -1,0 +1,256 @@
+name: reverse-etl-abandoned-checkout
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: retl
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "54330:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d retl"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 40s
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command: >
+      -c "
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic commerce.events --partitions 3 --replication-factor 1 &&
+        echo 'topics ready'
+      "
+
+  kafka-ui:
+    image: redpandadata/console:v3.3.1
+    ports:
+      - "8096:8080"
+    environment:
+      KAFKA_BROKERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    ports:
+      - "8131:8123"
+      - "9021:9000"
+    environment:
+      CLICKHOUSE_USER: admin
+      CLICKHOUSE_PASSWORD: admin123
+      CLICKHOUSE_DB: retl
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse/01-raw.sql:/docker-entrypoint-initdb.d/01-raw.sql
+      - ./clickhouse/kafka.xml:/etc/clickhouse-server/config.d/kafka.xml
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--user", "admin", "--password", "admin123", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  event-simulator:
+    build: ./event-simulator
+    ports:
+      - "8097:8080"
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      RETL_EVENTS_TOPIC: commerce.events
+      RETL_ACTIVE_USERS: "80"
+      RETL_TICK_MS: "4000"
+      RETL_BACKFILL_HOURS: "6"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      clickhouse:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 40s
+    restart: on-failure
+
+  email-mock:
+    build: ./email-mock
+    ports:
+      - "8098:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/retl
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+      EMAIL_MOCK_RATE_LIMIT_PROBABILITY: "0.08"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: on-failure
+
+  dbt:
+    build: ./dbt
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      event-simulator:
+        condition: service_healthy
+    entrypoint: ["bash", "-lc"]
+    command: >
+      "sleep 45 &&
+       while true; do
+         dbt run && dbt test && echo \"dbt ok at $$(date -Is)\";
+         sleep 600;
+       done"
+    restart: on-failure
+
+  sync-worker:
+    build: ./sync-worker
+    ports:
+      - "8099:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/retl
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+      RETL_SYNC_CLICKHOUSE_URL: http://clickhouse:8123
+      RETL_SYNC_CLICKHOUSE_USER: admin
+      RETL_SYNC_CLICKHOUSE_PASSWORD: admin123
+      RETL_SYNC_EMAIL_API_URL: http://email-mock:8080
+      RETL_SYNC_INTERVAL_MS: "30000"
+      RETL_SYNC_INITIAL_DELAY_MS: "60000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      email-mock:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      dbt:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 40s
+    restart: on-failure
+
+  airflow-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  airflow:
+    build: ./airflow
+    restart: always
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      sync-worker:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
+    # Host docker.sock group (see `getent group docker`). Override: DOCKER_GID=xxx docker compose up -d
+    group_add:
+      - "${DOCKER_GID:-1001}"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp:/tmp
+    ports:
+      - "8091:8080"
+    command: bash -c "
+      airflow db init &&
+      airflow db migrate &&
+      airflow users create \
+        --username admin \
+        --firstname Air \
+        --lastname Flow \
+        --role Admin \
+        --email admin@example.com \
+        --password admin || true &&
+      airflow webserver &
+      exec airflow scheduler"
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    ports:
+      - "3011:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: grafana-clickhouse-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ../iot-pipeline/grafana/plugins:/var/lib/grafana/plugins:ro
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  clickhouse-data:
+  grafana-data:

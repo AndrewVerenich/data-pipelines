@@ -22,19 +22,4 @@ Next steps
 DONE: Логистический control tower → ./logistics-control-tower/
 
 
-Reverse ETL: брошенная корзина
-
-Стек: Kotlin / Spring Boot, Apache Kafka, ClickHouse, dbt, Apache Airflow, PostgreSQL, Grafana
-
-Активация аудитории «бросил оформление заказа»: события витрины собирают желаемое состояние членства, синк считает разницу с прошлым прогоном и доставляет enter, leave и update в мок email-сервиса. Покупка или истечение окна снимает человека с цепочки.
-
-Ключевые возможности:
-- Генератор: просмотры, корзина, оформление, заказ, поздние события, битый email
-- Ingestion из Kafka через Kafka Engine + Materialized Views
-- dbt: профиль клиента и аудитория abandoned_checkout как желаемое состояние
-- Changelog синка: enter, leave, update относительно прошлого снимка
-- Kotlin-воркер доставляет пачки в HTTP API email-сервиса, состояние членства лежит в PostgreSQL
-- Идемпотентность по user_id, аудитории и версии: повтор после сбоя не создаёт вторую подписку
-- Dead-letter для 429 и отклонённых строк, следующий прогон продолжается с места остановки
-- Airflow: витрина, затем diff, затем доставка
-- Grafana: лаг синка, размер пачки, ошибки, повторные доставки
+DONE: Reverse ETL: брошенная корзина → ./reverse-etl-abandoned-checkout/

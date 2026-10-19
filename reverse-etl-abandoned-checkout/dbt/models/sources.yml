@@ -1,0 +1,7 @@
+version: 2
+
+sources:
+  - name: raw_retl
+    schema: retl
+    tables:
+      - name: raw_commerce_events
