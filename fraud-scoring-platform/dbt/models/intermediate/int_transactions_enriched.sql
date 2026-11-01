@@ -1,0 +1,30 @@
+select
+    t.transaction_id as transaction_id,
+    t.event_ts as event_ts,
+    t.user_id as user_id,
+    t.merchant_id as merchant_id,
+    t.device_id as device_id,
+    t.payment_method_id as payment_method_id,
+    t.amount as amount,
+    t.currency as currency,
+    t.channel as channel,
+    t.status as status,
+    t.ip_country as ip_country,
+    t.is_3ds as is_3ds,
+    t.card_bin as card_bin,
+    t.device_os as device_os,
+    t.mcc as mcc,
+    t.merchant_country as merchant_country,
+    u.country as user_country,
+    u.kyc_level as kyc_level,
+    u.risk_tier as risk_tier,
+    m.merchant_name as merchant_name,
+    m.risk_score as merchant_risk_score,
+    m.country as merchant_dim_country,
+    if(t.ip_country = u.country, 0, 1) as is_foreign_ip,
+    if(t.merchant_country = u.country, 0, 1) as is_cross_border,
+    toHour(t.event_ts) as hour_of_day,
+    toDayOfWeek(t.event_ts) as day_of_week
+from {{ ref('stg_transactions') }} as t
+left join {{ ref('stg_users') }} as u on t.user_id = u.user_id
+left join {{ ref('stg_merchants') }} as m on t.merchant_id = m.merchant_id

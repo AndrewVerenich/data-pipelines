@@ -1,0 +1,36 @@
+name: 'fraud_scoring'
+version: '1.0'
+profile: 'clickhouse_profile'
+
+on-run-start:
+  - '{{ drop_clickhouse_dbt_backups() }}'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+models:
+  fraud_scoring:
+    staging:
+      materialized: view
+      tags: ['staging']
+    intermediate:
+      materialized: view
+      tags: ['intermediate']
+    dimensions:
+      materialized: table
+      tags: ['dimensions']
+    facts:
+      materialized: table
+      tags: ['facts']
+    features:
+      materialized: table
+      tags: ['features']
+    marts:
+      materialized: table
+      tags: ['marts']
+
+seeds:
+  fraud_scoring:
+    +full_refresh: true
