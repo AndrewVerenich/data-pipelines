@@ -8,8 +8,8 @@ flowchart LR
   K --> CH["ClickHouse<br/>Kafka Engine + MV"]
   CH --> DBT["dbt<br/>staging → dims → facts → features → marts"]
   DBT --> Train["CatBoost train<br/>Kotlin ml-jobs + CLI"]
-  Train --> model registry[("versioned model registry (Docker volume)")]
-  model registry --> API["Scoring API<br/>Kotlin Spring Boot"]
+  Train --> model_registry[("versioned model registry (Docker volume)")]
+  model_registry --> API["Scoring API<br/>Kotlin Spring Boot"]
   DBT --> API
   API -->|payments.scores| K
   AF["Airflow"] --> DBT
@@ -105,12 +105,10 @@ docker compose down -v       # полный сброс
 | Airflow | http://localhost:8081 | admin / admin |
 | Superset | http://localhost:8090 | admin / admin |
 | Grafana | http://localhost:3000 | admin / admin |
-
-> **Grafana:** если datasource пустой — вручную поставьте плагин `grafana-clickhouse-datasource` (Connections → Add new connection → ClickHouse).
-
-> Grafana: установите плагин `grafana-clickhouse-datasource` в UI (Connections → Add new connection), если дашборд не подхватывает datasource автоматически.
 | Kafka UI | http://localhost:8088 | — |
 | ClickHouse HTTP | http://localhost:8123 | admin / admin123 |
+
+![Superset Dashboard](docs/superset.png)
 
 ## Модель данных (star schema)
 
@@ -199,6 +197,8 @@ check_clickhouse
   → staging → intermediate → dimensions → facts → features → marts
   → dbt_test → train_catboost → batch_score → refresh_marts
 ```
+
+![Airflow Dashboard](docs/airflow.png)
 
 ## Структура проекта
 
