@@ -17,7 +17,7 @@ allprojects {
 }
 
 subprojects {
-    if (project.name !in listOf("iot-pipeline", "marketing-analytics-platform", "banking-lakehouse")) {
+    if (project.name !in listOf("iot-pipeline", "marketing-analytics-platform", "banking-lakehouse", "fraud-scoring-platform")) {
         apply(plugin = "org.jetbrains.kotlin.jvm")
         
         tasks.withType<KotlinCompile> {
@@ -66,6 +66,24 @@ project(":ab-experiments-platform:traffic-simulator") {
 }
 
 project(":ab-experiments-platform:analysis-job") {
+    apply(plugin = "org.jetbrains.kotlin.plugin.spring")
+    apply(plugin = "org.springframework.boot")
+    apply(plugin = "io.spring.dependency-management")
+}
+
+project(":fraud-scoring-platform:generator") {
+    apply(plugin = "org.jetbrains.kotlin.plugin.spring")
+    apply(plugin = "org.springframework.boot")
+    apply(plugin = "io.spring.dependency-management")
+}
+
+project(":fraud-scoring-platform:ml-jobs") {
+    apply(plugin = "org.jetbrains.kotlin.plugin.spring")
+    apply(plugin = "org.springframework.boot")
+    apply(plugin = "io.spring.dependency-management")
+}
+
+project(":fraud-scoring-platform:scoring-service") {
     apply(plugin = "org.jetbrains.kotlin.plugin.spring")
     apply(plugin = "org.springframework.boot")
     apply(plugin = "io.spring.dependency-management")
