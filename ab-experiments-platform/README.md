@@ -76,8 +76,6 @@ flowchart LR
 | Статистика | Kotlin + Commons Math | z-тест, SRM, CUPED |
 | Дашборд | Grafana 10 | Решения, лифт, конверсия по дням |
 
-Grafana подключает плагин ClickHouse из `iot-pipeline/grafana/plugins` этого же репозитория.
-
 ---
 
 ## Как считается решение
