@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: dim_experiment
+    description: Experiment dimension derived from user-level exposures
+    columns:
+      - name: experiment_key
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_variant
+    description: Arm dimension (control / treatment)
+    columns:
+      - name: variant_key
+        tests:
+          - not_null
+          - unique
+          - accepted_values:
+              arguments:
+                values: ['control', 'treatment']
+
+  - name: dim_metric
+    description: Metric catalog from metric_config seed
+    columns:
+      - name: metric_key
+        tests:
+          - not_null
+          - unique
+
+  - name: fct_user_experiment
+    description: User-level fact — one row per sticky assignment with attributed outcomes
+    columns:
+      - name: experiment_key
+        tests:
+          - not_null
+      - name: user_id
+        tests:
+          - not_null
+      - name: variant_key
+        tests:
+          - not_null
+
+  - name: fct_experiment_metric
+    description: Experiment × metric fact with lift, CI, CUPED and ship|stop|hold
+    columns:
+      - name: experiment_key
+        tests:
+          - not_null
+      - name: metric_key
+        tests:
+          - not_null
+      - name: decision
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ship', 'stop', 'hold']

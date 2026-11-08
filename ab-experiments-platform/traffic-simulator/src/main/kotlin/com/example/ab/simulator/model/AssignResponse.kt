@@ -9,5 +9,5 @@ data class AssignResponse(
   @JsonProperty("in_experiment") val inExperiment: Boolean = false,
   @JsonProperty("variant_key") val variantKey: String? = null,
   val bucket: Int = 0,
-  @JsonProperty("exposed_at") val exposedAt: Double? = null,
+  @JsonProperty("assigned_at") val assignedAt: String? = null,
 )

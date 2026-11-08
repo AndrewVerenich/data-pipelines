@@ -12,7 +12,7 @@
 - **S3 Data Lakehouse** ([Banking](#s3-lakehouse-project)): Kafka → MinIO (S3) → **Spark + Iceberg** (Bronze / Silver / 
   Gold), SQL через **Trino**, **Airflow**, **Superset**.
 - **ML Fraud Scoring** ([Fraud Scoring](#fraud-scoring-project)): Kafka → ClickHouse (DWH + feature store) → **dbt** → **CatBoost** → Kotlin Spring Boot scoring → **Airflow**, Superset, Grafana.
-- **Платформа экспериментов** ([A/B](#ab-project)): назначение варианта, экспозиции и исходы в ClickHouse, SRM, CUPED и решение ship / stop / hold.
+- **Платформа экспериментов** ([A/B](#ab-project)): sticky assignment в Postgres, CDC через Debezium, dbt + Airflow для статистики, Superset.
 
 ## 🎯 Цель проекта
 
@@ -163,15 +163,15 @@ Antifraud ML-платформа: события платежей и лейблы
 <a id="ab-project"></a>
 ### 🧪 [A/B Experiments Platform](./ab-experiments-platform/README.md)
 
-**Стек:** PostgreSQL • Kotlin / Spring Boot • Apache Kafka • ClickHouse • Grafana
+**Стек:** PostgreSQL • Kotlin / Spring Boot • Debezium • Apache Kafka • ClickHouse • dbt • Airflow • Apache Superset
 
-Платформа A/B-экспериментов для checkout: конфиг в Postgres, детерминированный бакетинг, экспозиции и исходы через Kafka, user-level факты в ClickHouse и статистическое решение на Grafana.
+Платформа A/B-экспериментов: sticky assignment в Postgres, CDC через Debezium, статистика в dbt/Airflow, дашборд в Superset.
 
 **Ключевые возможности:**
-- ✅ Sticky assignment: MurmurHash3, веса вариантов, идемпотентная первая экспозиция
-- ✅ Три демо-эксперимента с заложенным эффектом: ship, stop по guardrail, A/A hold
-- ✅ ClickHouse: Kafka Engine + Materialized Views, окно атрибуции, предэкспериментальная выручка
-- ✅ Wald-интервал, SRM (хи-квадрат) и CUPED для выручки
-- ✅ Grafana: решение, лифт, дневная конверсия control против treatment
+- ✅ Assignment = exposure, SSOT в таблице `assignments`
+- ✅ API: create / start / stop, assign, outcomes
+- ✅ CDC только через Debezium (сервисы не пишут в Kafka)
+- ✅ dbt + Airflow: Wald / SRM / CUPED → ship / stop / hold
+- ✅ Superset: decisions, lift/CI, daily conversion
 
 ---

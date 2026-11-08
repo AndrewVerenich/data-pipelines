@@ -10,14 +10,20 @@ java {
 }
 
 dependencies {
-  implementation(project(":ab-experiments-platform:platform-lib"))
   implementation("org.jetbrains.kotlin:kotlin-reflect")
   implementation("org.springframework.boot:spring-boot-starter-web")
   implementation("org.springframework.boot:spring-boot-starter-jdbc")
   implementation("org.springframework.boot:spring-boot-starter-actuator")
-  implementation("org.springframework.kafka:spring-kafka")
+  implementation("org.springframework.boot:spring-boot-starter-validation")
   implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
   implementation("org.postgresql:postgresql")
+  implementation("com.google.guava:guava:32.1.3-jre")
+
+  testImplementation(kotlin("test"))
+}
+
+tasks.test {
+  useJUnitPlatform()
 }
 
 tasks.bootJar {

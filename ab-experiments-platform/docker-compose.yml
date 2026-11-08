@@ -3,6 +3,7 @@ name: ab-experiments
 services:
   postgres:
     image: postgres:15
+    command: postgres -c wal_level=logical
     environment:
       POSTGRES_DB: ab
       POSTGRES_USER: admin
@@ -40,26 +41,12 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
     healthcheck:
       test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
       interval: 10s
       timeout: 10s
       retries: 12
       start_period: 40s
-
-  kafka-init:
-    image: confluentinc/cp-kafka:7.5.0
-    depends_on:
-      kafka:
-        condition: service_healthy
-    entrypoint: /bin/sh
-    command: >
-      -c "
-        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic ab.exposures --partitions 3 --replication-factor 1 &&
-        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic ab.outcomes --partitions 3 --replication-factor 1 &&
-        echo 'topics ready'
-      "
 
   kafka-ui:
     image: redpandadata/console:v3.3.1
@@ -70,6 +57,42 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+
+  debezium:
+    image: debezium/connect:2.5
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8094:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: ab-debezium
+      CONFIG_STORAGE_TOPIC: ab_debezium_configs
+      OFFSET_STORAGE_TOPIC: ab_debezium_offsets
+      STATUS_STORAGE_TOPIC: ab_debezium_status
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      PLUGIN_PATH: /kafka/connect
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/connectors || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  debezium-init:
+    image: curlimages/curl:8.5.0
+    depends_on:
+      debezium:
+        condition: service_healthy
+    volumes:
+      - ./debezium/init-debezium.sh:/init-debezium.sh:ro
+    entrypoint: ["sh", "/init-debezium.sh"]
 
   clickhouse:
     image: clickhouse/clickhouse-server:23.8
@@ -85,9 +108,10 @@ services:
       - ./clickhouse/01-raw.sql:/docker-entrypoint-initdb.d/01-raw.sql
       - ./clickhouse/02-user-level.sql:/docker-entrypoint-initdb.d/02-user-level.sql
       - ./clickhouse/03-results.sql:/docker-entrypoint-initdb.d/03-results.sql
-      - ./clickhouse/kafka.xml:/etc/clickhouse-server/config.d/kafka.xml
     depends_on:
-      kafka-init:
+      kafka:
+        condition: service_healthy
+      debezium-init:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "clickhouse-client", "--user", "admin", "--password", "admin123", "--query", "SELECT 1"]
@@ -104,12 +128,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ab
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin123
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       postgres:
         condition: service_healthy
-      kafka-init:
-        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
@@ -121,58 +142,91 @@ services:
   traffic-simulator:
     build: ./traffic-simulator
     environment:
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       AB_ASSIGNMENT_URL: http://assignment-service:8080
-      AB_CLICKHOUSE_URL: http://clickhouse:8123
-      AB_CLICKHOUSE_USER: admin
-      AB_CLICKHOUSE_PASSWORD: admin123
     depends_on:
       assignment-service:
         condition: service_healthy
-      clickhouse:
-        condition: service_healthy
+      debezium-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 5s
-      retries: 18
-      start_period: 40s
+      retries: 30
+      start_period: 90s
     restart: on-failure
 
-  analysis-job:
-    build: ./analysis-job
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ab
-      SPRING_DATASOURCE_USERNAME: admin
-      SPRING_DATASOURCE_PASSWORD: admin123
-      AB_CLICKHOUSE_URL: http://clickhouse:8123
-      AB_CLICKHOUSE_USER: admin
-      AB_CLICKHOUSE_PASSWORD: admin123
+  dbt:
+    build:
+      context: ./dbt
+    image: ab-experiments-dbt:latest
     depends_on:
+      clickhouse:
+        condition: service_healthy
+    # Build/tag image for Airflow DockerOperator; exit after printing version.
+    command: ["--version"]
+
+  airflow-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  airflow:
+    build: ./airflow
+    user: root
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      dbt:
+        condition: service_completed_successfully
       traffic-simulator:
         condition: service_healthy
-      clickhouse:
-        condition: service_healthy
-    restart: on-failure
-
-  grafana:
-    image: grafana/grafana:10.2.3
-    ports:
-      - "3009:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: grafana-clickhouse-datasource
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
+      PYTHONPATH: /home/airflow/.local/lib/python3.8/site-packages
     volumes:
-      - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
-      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
-      - ../iot-pipeline/grafana/plugins:/var/lib/grafana/plugins:ro
+      - ./airflow/dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8096:8080"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        airflow db migrate
+        airflow connections create-default-connections || true
+        airflow users create --username admin --firstname Air --lastname Flow --role Admin --email admin@example.com --password admin || true
+        airflow dags unpause ab_experiments_analysis || true
+        airflow webserver &
+        exec airflow scheduler
+
+  superset:
+    build: ./superset
+    ports:
+      - "8095:8088"
     depends_on:
       clickhouse:
         condition: service_healthy
+    volumes:
+      - superset-home:/app/superset_home
+    entrypoint: ["/superset/docker-entrypoint.sh"]
+    environment:
+      SUPERSET_CONFIG_PATH: /app/superset_home/superset_config.py
 
 volumes:
   postgres-data:
   clickhouse-data:
-  grafana-data:
+  superset-home:

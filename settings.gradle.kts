@@ -14,8 +14,6 @@ include(
   "fraud-scoring-platform:generator",
   "fraud-scoring-platform:ml-jobs",
   "fraud-scoring-platform:scoring-service",
-  "ab-experiments-platform:platform-lib",
   "ab-experiments-platform:assignment-service",
   "ab-experiments-platform:traffic-simulator",
-  "ab-experiments-platform:analysis-job",
 )

@@ -1,0 +1,4 @@
+metric_key,metric_type,role,min_effect,higher_is_better
+conversion,binomial,primary,0.02,1
+revenue,continuous,secondary,0.0,1
+refund,binomial,guardrail,0.02,0

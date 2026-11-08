@@ -1,59 +1,51 @@
 package com.example.ab.simulator.service
 
-import com.example.ab.bucketing.ExposureVersion
-import com.example.ab.catalog.DemoCatalog
-import com.example.ab.catalog.PlantedEffect
-import com.example.ab.clickhouse.ClickHouseClient
-import com.example.ab.sampling.OutcomeSampler
-import com.example.ab.sampling.SampledUser
 import com.example.ab.simulator.config.SimulatorProperties
+import com.example.ab.simulator.demo.DemoCatalog
+import com.example.ab.simulator.demo.OutcomeSampler
+import com.example.ab.simulator.demo.SampledUser
 import com.example.ab.simulator.model.AssignResponse
 import com.example.ab.simulator.model.OutcomeEvent
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
-import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.boot.web.client.RestTemplateBuilder
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
+import org.springframework.http.MediaType
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.web.client.getForObject
+import org.springframework.web.client.postForEntity
+import java.time.Duration
 import java.time.Instant
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.util.UUID
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 @Component
 class TrafficSimulator(
   private val properties: SimulatorProperties,
-  private val kafkaTemplate: KafkaTemplate<String, Any>,
-  private val objectMapper: ObjectMapper,
-  restTemplateBuilder: org.springframework.boot.web.client.RestTemplateBuilder,
+  restTemplateBuilder: RestTemplateBuilder,
 ) : ApplicationRunner {
   private val log = LoggerFactory.getLogger(TrafficSimulator::class.java)
-  private val clickHouse = ClickHouseClient(
-    properties.clickhouseUrl,
-    properties.clickhouseUser,
-    properties.clickhousePassword,
-  )
   private val restTemplate = restTemplateBuilder
-    .setConnectTimeout(java.time.Duration.ofSeconds(3))
-    .setReadTimeout(java.time.Duration.ofSeconds(10))
+    .setConnectTimeout(Duration.ofSeconds(3))
+    .setReadTimeout(Duration.ofMinutes(5))
     .build()
   private val liveSeq = AtomicLong(1)
   @Volatile
-  private var backfillDone = false
+  private var ready = false
 
   override fun run(args: ApplicationArguments) {
-    backfill()
-    backfillDone = true
+    waitForAssignment()
+    restTemplate.postForEntity<Void>("${properties.assignmentUrl}/api/admin/backfill", null)
+    log.info("demo backfill requested")
+    ready = true
   }
 
   @Scheduled(fixedDelayString = "\${ab.live-interval-ms:2000}")
   fun liveTick() {
-    if (!backfillDone) return
+    if (!ready) return
     val seq = liveSeq.getAndIncrement()
     DemoCatalog.experiments.forEach { effect ->
       try {
@@ -63,11 +55,16 @@ class TrafficSimulator(
           effect.experimentKey,
           userId,
         )
-        if (!assignment.inExperiment || assignment.variantKey == null || assignment.exposedAt == null) return@forEach
+        if (!assignment.inExperiment || assignment.variantKey == null || assignment.assignedAt == null) return@forEach
         val sampled = OutcomeSampler.liveUser(effect, userId, assignment.variantKey, assignment.bucket)
-        val exposedAt = Instant.ofEpochMilli((assignment.exposedAt * 1000).toLong())
-        outcomeEvents(sampled, exposedAt).forEach { event ->
-          kafkaTemplate.send(properties.outcomesTopic, event.userId, event).get(5, TimeUnit.SECONDS)
+        val exposedAt = Instant.parse(assignment.assignedAt)
+        val events = outcomeEvents(effect.experimentKey, sampled, exposedAt)
+        if (events.isNotEmpty()) {
+          val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+          restTemplate.postForEntity<Void>(
+            "${properties.assignmentUrl}/api/outcomes/batch",
+            HttpEntity(mapOf("events" to events), headers),
+          )
         }
       } catch (ex: Exception) {
         log.warn("live tick failed for {}: {}", effect.experimentKey, ex.message)
@@ -75,81 +72,45 @@ class TrafficSimulator(
     }
   }
 
-  private fun backfill() {
-    val existing = clickHouse.command(
-      "SELECT count() FROM ab.raw_exposures WHERE user_id LIKE '%:u-%' FORMAT TabSeparated"
-    ).trim().toLongOrNull() ?: 0L
-    if (existing > 0L) {
-      log.info("backfill already present ({} exposures), skipping", existing)
-      return
-    }
-    val start = Instant.now().minus(14, ChronoUnit.DAYS)
-    val spanMillis = 14L * 24 * 60 * 60 * 1000
-    DemoCatalog.experiments.forEach { effect ->
-      val exposures = mutableListOf<String>()
-      val outcomes = mutableListOf<String>()
-      repeat(DemoCatalog.BACKFILL_USERS) { index ->
-        val user = OutcomeSampler.backfillUser(effect, index)
-        val exposedAt = start.plusMillis(index * spanMillis / DemoCatalog.BACKFILL_USERS)
-        exposures += objectMapper.writeValueAsString(exposureRow(effect, user, exposedAt))
-        outcomeEvents(user, exposedAt).forEach { event ->
-          outcomes += objectMapper.writeValueAsString(outcomeRow(event))
-        }
+  private fun waitForAssignment() {
+    repeat(60) {
+      try {
+        restTemplate.getForObject<Any>("${properties.assignmentUrl}/actuator/health")
+        return
+      } catch (_: Exception) {
+        Thread.sleep(2_000)
       }
-      clickHouse.insertJsonEachRow("ab.raw_exposures", exposures)
-      clickHouse.insertJsonEachRow("ab.raw_outcomes", outcomes)
-      log.info("backfilled {} users for {}", DemoCatalog.BACKFILL_USERS, effect.experimentKey)
     }
+    error("assignment-service is not healthy")
   }
 
-  private fun exposureRow(effect: PlantedEffect, user: SampledUser, exposedAt: Instant): Map<String, Any> {
-    val millis = exposedAt.toEpochMilli()
-    return mapOf(
-      "exposure_id" to "backfill-${user.userId}",
-      "experiment_id" to effect.experimentId,
-      "experiment_key" to effect.experimentKey,
-      "variant_key" to user.variantKey,
-      "user_id" to user.userId,
-      "bucket" to user.bucket,
-      "exposed_at" to CLICKHOUSE_TIME.format(exposedAt),
-      "exposure_version" to ExposureVersion.of(millis),
-    )
-  }
-
-  private fun outcomeEvents(user: SampledUser, exposedAt: Instant): List<OutcomeEvent> {
+  private fun outcomeEvents(experimentKey: String, user: SampledUser, exposedAt: Instant): List<OutcomeEvent> {
     val events = mutableListOf<OutcomeEvent>()
     if (user.preRevenue > 0.0) {
-      events += outcome(user.userId, "revenue", user.preRevenue, exposedAt.minus(3, ChronoUnit.DAYS))
+      events += outcome(experimentKey, user.userId, "revenue", user.preRevenue, exposedAt.minus(3, ChronoUnit.DAYS))
     }
     if (user.converted) {
       val at = exposedAt.plusSeconds(45)
-      events += outcome(user.userId, "conversion", 1.0, at)
-      events += outcome(user.userId, "revenue", user.revenue, at)
+      events += outcome(experimentKey, user.userId, "conversion", 1.0, at)
+      events += outcome(experimentKey, user.userId, "revenue", user.revenue, at)
     }
     if (user.refunded) {
-      events += outcome(user.userId, "refund", 1.0, exposedAt.plusSeconds(50))
+      events += outcome(experimentKey, user.userId, "refund", 1.0, exposedAt.plusSeconds(50))
     }
     return events
   }
 
-  private fun outcome(userId: String, type: String, value: Double, at: Instant) = OutcomeEvent(
-    eventId = UUID.randomUUID().toString(),
+  private fun outcome(
+    experimentKey: String,
+    userId: String,
+    type: String,
+    value: Double,
+    at: Instant,
+  ) = OutcomeEvent(
+    experimentKey = experimentKey,
     userId = userId,
     eventType = type,
     value = value,
-    eventTime = at.toEpochMilli() / 1000.0,
+    eventTime = at.toString(),
   )
-
-  private fun outcomeRow(event: OutcomeEvent): Map<String, Any> = mapOf(
-    "event_id" to event.eventId,
-    "user_id" to event.userId,
-    "event_type" to event.eventType,
-    "value" to event.value,
-    "event_time" to CLICKHOUSE_TIME.format(Instant.ofEpochMilli((event.eventTime * 1000).toLong())),
-  )
-
-  private companion object {
-    val CLICKHOUSE_TIME: DateTimeFormatter =
-      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneOffset.UTC)
-  }
 }

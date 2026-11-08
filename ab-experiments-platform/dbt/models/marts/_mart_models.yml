@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: mart_experiment_results
+    description: Per-metric A/B estimates and experiment decision (ship/stop/hold)
+    columns:
+      - name: experiment_key
+        tests:
+          - not_null
+      - name: metric_key
+        tests:
+          - not_null
+      - name: decision
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ship', 'stop', 'hold']

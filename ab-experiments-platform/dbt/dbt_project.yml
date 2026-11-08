@@ -1,0 +1,24 @@
+name: 'ab_experiments'
+version: '1.0.0'
+profile: 'clickhouse_profile'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+on-run-start:
+  - '{{ drop_clickhouse_dbt_backups() }}'
+
+models:
+  ab_experiments:
+    intermediate:
+      +materialized: view
+      +tags: ['intermediate']
+    marts:
+      +materialized: table
+      +tags: ['marts']
+
+seeds:
+  ab_experiments:
+    +full_refresh: true

@@ -1,33 +1,31 @@
 package com.example.ab.assignment.service
 
 import com.example.ab.assignment.model.AssignResponse
+import com.example.ab.assignment.model.AssignmentRow
 import com.example.ab.assignment.model.ExperimentConfig
-import com.example.ab.assignment.model.ExposureEvent
+import com.example.ab.assignment.repository.AssignmentRepository
 import com.example.ab.assignment.repository.ExperimentRepository
-import com.example.ab.bucketing.Bucketer
-import com.example.ab.bucketing.ExposureVersion
+import com.example.ab.assignment.bucketing.Bucketer
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class AssignmentService(
   private val experiments: ExperimentRepository,
-  private val publisher: ExposurePublisher,
+  private val assignments: AssignmentRepository,
 ) {
-  private val seen = ConcurrentHashMap<String, AssignResponse>()
-
   fun assign(experimentKey: String, userId: String): AssignResponse {
-    val experiment = experiments.find(experimentKey)
+    val experiment = experiments.findConfig(experimentKey)
       ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown experiment: $experimentKey")
-    val cacheKey = "${experiment.key}:${experiment.salt}:$userId"
-    return seen.computeIfAbsent(cacheKey) { compute(experiment, userId) }
-  }
+    if (experiment.status != "running") {
+      throw ResponseStatusException(HttpStatus.CONFLICT, "Experiment is not running: ${experiment.status}")
+    }
 
-  private fun compute(experiment: ExperimentConfig, userId: String): AssignResponse {
+    val existing = assignments.find(experiment.id, userId)
+    if (existing != null) return existing.toResponse(inExperiment = true)
+
     val bucket = Bucketer.bucket(experiment.salt, userId)
     val variant = Bucketer.variant(
       bucket,
@@ -37,28 +35,36 @@ class AssignmentService(
     if (variant == null) {
       return AssignResponse(experiment.key, experiment.id, userId, false, null, bucket, null)
     }
-    val exposedAtMillis = Instant.now().toEpochMilli()
-    val response = AssignResponse(
-      experimentKey = experiment.key,
-      experimentId = experiment.id,
-      userId = userId,
-      inExperiment = true,
-      variantKey = variant,
-      bucket = bucket,
-      exposedAt = exposedAtMillis / 1000.0,
-    )
-    publisher.publish(
-      ExposureEvent(
-        exposureId = UUID.randomUUID().toString(),
+
+    val saved = assignments.insert(
+      AssignmentRow(
         experimentId = experiment.id,
         experimentKey = experiment.key,
-        variantKey = variant,
         userId = userId,
+        variantKey = variant,
         bucket = bucket,
-        exposedAt = response.exposedAt!!,
-        exposureVersion = ExposureVersion.of(exposedAtMillis),
+        assignedAt = Instant.now(),
       )
     )
-    return response
+    return saved.toResponse(inExperiment = true)
   }
+
+  fun requireRunning(experimentKey: String): ExperimentConfig {
+    val experiment = experiments.findConfig(experimentKey)
+      ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown experiment: $experimentKey")
+    if (experiment.status != "running") {
+      throw ResponseStatusException(HttpStatus.CONFLICT, "Experiment is not running: ${experiment.status}")
+    }
+    return experiment
+  }
+
+  private fun AssignmentRow.toResponse(inExperiment: Boolean) = AssignResponse(
+    experimentKey = experimentKey,
+    experimentId = experimentId,
+    userId = userId,
+    inExperiment = inExperiment,
+    variantKey = variantKey,
+    bucket = bucket,
+    assignedAt = assignedAt.toString(),
+  )
 }
