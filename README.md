@@ -12,7 +12,7 @@
 - **S3 Data Lakehouse** ([Banking](#s3-lakehouse-project)): Kafka → MinIO (S3) → **Spark + Iceberg** (Bronze / Silver / 
   Gold), SQL через **Trino**, **Airflow**, **Superset**.
 - **ML Fraud Scoring** ([Fraud Scoring](#fraud-scoring-project)): Kafka → ClickHouse (DWH + feature store) → **dbt** → **CatBoost** → Kotlin Spring Boot scoring → **Airflow**, Superset, Grafana.
-- **Платформа экспериментов** ([A/B](#ab-project)): sticky assignment в Postgres, CDC через Debezium, dbt + Airflow для статистики, Superset.
+- **Платформа онлайн-экспериментов** ([A/B](#ab-project)): sticky assignment = exposure в Postgres, CDC (Debezium) без продюсеров из сервисов, статистика и decision `ship`/`stop`/`hold` в **dbt + Airflow**, star schema и **Superset**.
 
 ## 🎯 Цель проекта
 
@@ -163,15 +163,21 @@ Antifraud ML-платформа: события платежей и лейблы
 <a id="ab-project"></a>
 ### 🧪 [A/B Experiments Platform](./ab-experiments-platform/README.md)
 
-**Стек:** PostgreSQL • Kotlin / Spring Boot • Debezium • Apache Kafka • ClickHouse • dbt • Airflow • Apache Superset
+**Стек:** PostgreSQL • Kotlin / Spring Boot • Debezium • Apache Kafka • ClickHouse • dbt • Apache Airflow • Apache Superset
 
-Платформа A/B-экспериментов: sticky assignment в Postgres, CDC через Debezium, статистика в dbt/Airflow, дашборд в Superset.
+Платформа **онлайн A/B-экспериментов**: продукт пишет sticky-assignment и outcomes в **Postgres** (SSOT), аналитика забирает данные через **Debezium CDC** (сервисы в Kafka не пишут), считает эффект в **dbt** на ClickHouse (Wald, SRM, CUPED) и выдаёт решение **`ship` / `stop` / `hold`**. Оркестрация — **Airflow** каждые 5 минут, BI — **Superset**. Акцент — разделение OLTP (assign/exposure) и ELT-аналитики, а не «ещё один feature-flag UI».
+
+Три демо с planted-эффектами: рост conversion → `ship`, вредный guardrail (refunds) → `stop`, A/A → `hold`.
 
 **Ключевые возможности:**
-- ✅ Assignment = exposure, SSOT в таблице `assignments`
-- ✅ API: create / start / stop, assign, outcomes
-- ✅ CDC только через Debezium (сервисы не пишут в Kafka)
-- ✅ dbt + Airflow: Wald / SRM / CUPED → ship / stop / hold
-- ✅ Superset: decisions, lift/CI, daily conversion
+- ✅ Sticky assignment = exposure: один ряд на `(experiment, user)` в Postgres
+- ✅ Lifecycle API: create / start / stop, assign, outcomes, demo backfill
+- ✅ CDC-only ingest: Debezium → Kafka → ClickHouse (`raw_*` → `user_level`)
+- ✅ dbt: arm stats → Wald CI/p-value, SRM χ², CUPED (revenue) → `experiment_results`
+- ✅ Decision rules: sample size + SRM → hold; guardrail harmful → stop; primary beneficial → ship
+- ✅ Star schema (`dim_experiment` / `dim_variant` / `dim_metric`, `fct_user_experiment`, `fct_experiment_metric`)
+- ✅ Airflow DAG `ab_experiments_analysis` (DockerOperator → dbt seed/run/test)
+- ✅ Superset: decisions, lift/CI/CUPED, daily conversion by variant
+- ✅ Compose bootstrap с первого раза: dbt ждёт CDC, затем стартуют Superset и Airflow
 
 ---

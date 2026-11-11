@@ -8,8 +8,9 @@ COPY packages.yml /usr/app/packages.yml
 COPY models /usr/app/models
 COPY macros /usr/app/macros
 COPY seeds /usr/app/seeds
+COPY bootstrap.sh /usr/app/bootstrap.sh
 
-RUN dbt deps || true
+RUN chmod +x /usr/app/bootstrap.sh && (dbt deps || true)
 
 RUN mkdir -p /root/.dbt
 COPY profiles.yml /root/.dbt/profiles.yml

@@ -1,14 +1,7 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-superset db upgrade
-superset fab create-admin \
-   --username admin \
-   --firstname Superset \
-   --lastname Admin \
-   --email admin@superset.com \
-   --password admin || true
-superset init
+# Admin/db already prepared by docker-entrypoint.sh; this script only wires BI assets.
 
 python3 - <<'PY'
 import json
@@ -23,6 +16,12 @@ USERNAME = "admin"
 PASSWORD = "admin"
 DATABASE_NAME = "ClickHouse A/B"
 SQLALCHEMY_URI = "clickhousedb://admin:admin123@clickhouse:8123/ab"
+CH_HTTP = "http://clickhouse:8123/?user=admin&password=admin123"
+REQUIRED_TABLES = (
+    "v_experiment_decisions",
+    "v_metric_summary",
+    "v_daily_conversion",
+)
 
 
 def request(path, method="GET", payload=None, token=None):
@@ -54,6 +53,30 @@ def wait_until_healthy():
             pass
         time.sleep(2)
     raise RuntimeError("Superset did not become healthy in time")
+
+
+def wait_for_clickhouse_tables():
+    for attempt in range(90):
+        missing = []
+        for table in REQUIRED_TABLES:
+            req = urllib.request.Request(
+                CH_HTTP,
+                data=f"EXISTS TABLE ab.{table}".encode(),
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    body = response.read().decode().strip()
+                if body != "1":
+                    missing.append(table)
+            except Exception:
+                missing.append(table)
+        if not missing:
+            print("ClickHouse BI tables ready:", ", ".join(REQUIRED_TABLES))
+            return
+        print(f"Waiting for dbt views ({attempt + 1}/90): missing={missing}")
+        time.sleep(5)
+    raise RuntimeError(f"ClickHouse tables not ready: {REQUIRED_TABLES}")
 
 
 def login():
@@ -214,6 +237,7 @@ def wire_dashboard(dashboard_id, chart_ids):
 
 
 wait_until_healthy()
+wait_for_clickhouse_tables()
 token = login()
 database_id = ensure_database(token)
 decisions_ds = ensure_dataset(token, database_id, "v_experiment_decisions")

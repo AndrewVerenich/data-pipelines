@@ -1,6 +1,53 @@
 # A/B Experiments Platform
 
-**Схема:**
+Портфолио-демо платформы онлайн-экспериментов: от sticky-assignment пользователя до решения `ship` / `stop` / `hold` на статистике в ClickHouse.
+
+## Что такое A/B-тестирование
+
+**A/B-тест** — контролируемый эксперимент: часть пользователей видит вариант A (control), часть — вариант B (treatment). Сравнивают метрики (конверсия, revenue, возвраты) и решают, катить ли изменение.
+
+Без платформы типичные проблемы:
+
+| Проблема | Почему это ломает вывод |
+|---|---|
+| Пользователь прыгает между вариантами | Смешиваются эффекты, lift необъясним |
+| Считают «хиты», а не пользователей | Один юзер с 10 визитами искажает долю |
+| Смотрят только primary-метрику | Рост конверсии ценой всплеска refunds |
+| Нет проверки баланса групп (SRM) | Сломанный сплит → ложный эффект |
+| Решение «на глаз» по графику | Шум / peeking без p-value и MDE |
+
+Правильный цикл: **assign → exposure → outcomes → оценка эффекта → decision**.
+
+## Что решает этот проект
+
+Демо показывает **сквозной data-путь** продакшн-подобной A/B платформы и отвечает на вопросы:
+
+1. **Кто в какой вариант попал?** — sticky assignment в Postgres (`assignments` = exposure, один ряд на `(experiment, user)`).
+2. **Как события доезжают в аналитику?** — сервисы **не пишут в Kafka**; Debezium CDC из Postgres → Kafka → ClickHouse.
+3. **Как померить эффект?** — dbt на ClickHouse: Wald CI/p-value, SRM, CUPED для revenue, пороги MDE.
+4. **Катить / откатывать / ждать?** — автоматический decision `ship` | `stop` | `hold` (primary + guardrail + sample size).
+5. **Где смотреть результат?** — Superset-дашборд; оркестрация пересчёта — Airflow каждые 5 минут.
+
+Три заложенных демо-эксперимента (planted lifts в sampler):
+
+| Эксперимент | Сценарий | Ожидаемое решение |
+|---|---|---|
+| `checkout_cta` | treatment даёт +8 п.п. conversion | `ship` |
+| `free_shipping` | treatment даёт +7 п.п. refunds | `stop` |
+| `aa_checkout` | A/A, эффектов нет | `hold` |
+
+**В скоупе:** assignment API, CDC, user-level grain, статистика в SQL (dbt), BI.  
+**Вне скоупа:** feature-flag UI продуктовых команд, multi-armed bandits, sequential testing / peeking-коррекции — это учебный каркас, не полный GrowthBook/Optimizely.
+
+**Ключевые возможности:**
+- lifecycle API: create / start / stop, assign, outcomes, backfill
+- assignment = exposure, SSOT в Postgres
+- CDC-only ingest (без продюсеров из сервисов)
+- dbt: arm stats → Wald / SRM / CUPED → `experiment_results` + star schema
+- Airflow DAG `ab_experiments_analysis` каждые 5 минут
+- Superset: decisions, lift/CI/CUPED, daily conversion
+
+## Архитектура
 
 ```mermaid
 flowchart LR
@@ -48,22 +95,6 @@ flowchart LR
   RES --> SS
   UNIT --> SS
 ```
-
-Платформа A/B: **sticky assignment в Postgres**, CDC через **Debezium**, статистика и решение `ship` / `stop` / `hold` — в **dbt + Airflow** (не в Kotlin-сервисе). BI — **Superset**.
-
-| Эксперимент | Заложенный эффект | Решение |
-|---|---|---|
-| `checkout_cta` | конверсия +8 п.п. | ship |
-| `free_shipping` | возвраты +7 п.п. | stop |
-| `aa_checkout` | A/A | hold |
-
-**Ключевые возможности:**
-- ✅ API lifecycle: create / start / stop, assign, outcomes
-- ✅ Assignment = exposure, SSOT в `assignments`
-- ✅ Сервисы не пишут в Kafka — только Debezium CDC
-- ✅ dbt: arm stats → Wald / SRM / CUPED → `experiment_results`
-- ✅ Airflow DAG `ab_experiments_analysis` каждые 5 минут
-- ✅ Superset: decisions, lift/CI/CUPED, daily conversion
 
 ---
 
@@ -267,14 +298,18 @@ cd ab-experiments-platform
 docker compose up -d --build
 ```
 
-После backfill и CDC Airflow поднимет DAG и прогонит dbt. Первый успешный run появится в `ab.experiment_results` и на дашборде Superset.
+Порядок первого старта:
+1. traffic-simulator → backfill + live  
+2. Debezium CDC → `ab.user_level`  
+3. `dbt` bootstrap (`seed` / `run` / `test`) после ≥1000 users  
+4. Superset и Airflow стартуют уже с готовыми витринами  
 
-Ручной прогон dbt:
+Ручной прогон dbt (переопределяет bootstrap-entrypoint):
 
 ```bash
-docker compose run --rm dbt seed --full-refresh
-docker compose run --rm dbt run
-docker compose run --rm dbt test
+docker compose run --rm --entrypoint dbt dbt seed --full-refresh
+docker compose run --rm --entrypoint dbt dbt run
+docker compose run --rm --entrypoint dbt dbt test
 ```
 
 ---

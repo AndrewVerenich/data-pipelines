@@ -163,8 +163,15 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
-    # Build/tag image for Airflow DockerOperator; exit after printing version.
-    command: ["--version"]
+      traffic-simulator:
+        condition: service_healthy
+    environment:
+      CLICKHOUSE_HTTP: http://clickhouse:8123/?user=admin&password=admin123
+      DBT_MIN_USER_LEVEL: "1000"
+      DBT_WAIT_SECONDS: "600"
+    # First-boot bootstrap: wait for CDC user_level, then seed/run/test.
+    # Image stays tagged as ab-experiments-dbt:latest for Airflow DockerOperator.
+    entrypoint: ["/bin/bash", "/usr/app/bootstrap.sh"]
 
   airflow-db:
     image: postgres:15
@@ -220,11 +227,20 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
+      dbt:
+        condition: service_completed_successfully
     volumes:
       - superset-home:/app/superset_home
     entrypoint: ["/superset/docker-entrypoint.sh"]
     environment:
       SUPERSET_CONFIG_PATH: /app/superset_home/superset_config.py
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8088/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    restart: on-failure
 
 volumes:
   postgres-data:
