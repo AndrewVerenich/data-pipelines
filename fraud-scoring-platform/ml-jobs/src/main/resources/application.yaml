@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: fraud-ml-jobs
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:${KAFKA_BOOTSTRAP:kafka:9092}}
+  main:
+    web-application-type: none
+    banner-mode: "off"
+
+app:
+  mode: ${APP_MODE:train}
+  model-root: ${MODEL_ROOT:/models/fraud-models}
+  catboost-bin: ${CATBOOST_BIN:catboost}
+  catboost-iterations: ${CATBOOST_ITERATIONS:200}
+  promote-min-auc: ${PROMOTE_MIN_AUC:0.75}
+  score-batch-limit: ${SCORE_BATCH_LIMIT:5000}
+  clickhouse:
+    url: ${CLICKHOUSE_JDBC:jdbc:clickhouse://clickhouse:8123/fraud}
+    user: ${CLICKHOUSE_USER:admin}
+    password: ${CLICKHOUSE_PASSWORD:admin123}
+
+logging:
+  level:
+    root: INFO
+    org.apache.kafka: WARN

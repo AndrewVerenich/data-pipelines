@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: ab
+    schema: ab
+    description: ClickHouse CDC + analysis unit for A/B platform
+    tables:
+      - name: raw_assignments
+        description: Debezium CDC of Postgres assignments (sticky exposure SSOT)
+      - name: raw_outcomes
+        description: Debezium CDC of Postgres outcomes
+      - name: user_level
+        description: Analysis unit — one row per (experiment, user) with attributed outcomes

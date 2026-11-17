@@ -11,9 +11,10 @@ include(
   "marketing-analytics-platform:event-producer",
   "banking-lakehouse:generator",
   "banking-lakehouse:spark",
-  "ab-experiments-platform:platform-lib",
+  "fraud-scoring-platform:generator",
+  "fraud-scoring-platform:ml-jobs",
+  "fraud-scoring-platform:scoring-service",
   "ab-experiments-platform:assignment-service",
   "ab-experiments-platform:traffic-simulator",
-  "ab-experiments-platform:analysis-job",
   "logistics-control-tower:trip-simulator",
 )
