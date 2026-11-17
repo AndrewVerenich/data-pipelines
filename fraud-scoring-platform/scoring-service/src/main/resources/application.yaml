@@ -1,0 +1,30 @@
+server:
+  port: ${SERVER_PORT:8085}
+
+spring:
+  application:
+    name: fraud-scoring-service
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:${KAFKA_BOOTSTRAP:kafka:9092}}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  model-root: ${MODEL_ROOT:/models/fraud-models}
+  clickhouse:
+    url: ${CLICKHOUSE_JDBC:jdbc:clickhouse://clickhouse:8123/fraud}
+    user: ${CLICKHOUSE_USER:admin}
+    password: ${CLICKHOUSE_PASSWORD:admin123}
+
+logging:
+  level:
+    root: INFO
+    org.apache.kafka: WARN

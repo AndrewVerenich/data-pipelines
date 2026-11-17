@@ -5,7 +5,7 @@
   "timezone": "browser",
   "refresh": "10s",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "time": { "from": "now-6h", "to": "now" },
   "panels": [
     {
@@ -101,9 +101,12 @@
           "showAttribution": true
         },
         "basemap": {
-          "type": "default",
-          "name": "Layer 0",
-          "config": {}
+          "type": "xyz",
+          "name": "OpenStreetMap",
+          "config": {
+            "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+            "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>"
+          }
         },
         "layers": [
           {
@@ -212,7 +215,14 @@
           "showZoom": true,
           "mouseWheelZoom": true
         },
-        "basemap": { "type": "default", "name": "Layer 0", "config": {} },
+        "basemap": {
+          "type": "xyz",
+          "name": "OpenStreetMap",
+          "config": {
+            "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+            "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>"
+          }
+        },
         "layers": [
           {
             "type": "heatmap",

@@ -111,6 +111,8 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: grafana-clickhouse-datasource
+      GF_GEOMAP_DEFAULT_BASELAYER_CONFIG: '{"type":"xyz","name":"OpenStreetMap","config":{"url":"https://tile.openstreetmap.org/{z}/{x}/{y}.png","attribution":"&copy; OpenStreetMap"}}'
+      GF_GEOMAP_ENABLE_CUSTOM_BASELAYERS: "true"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources

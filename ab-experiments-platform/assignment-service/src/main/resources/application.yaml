@@ -6,13 +6,6 @@ spring:
     url: jdbc:postgresql://localhost:54329/ab
     username: admin
     password: admin123
-  kafka:
-    bootstrap-servers: localhost:9092
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      properties:
-        spring.json.add.type.headers: false
 
 management:
   endpoints:
@@ -20,10 +13,6 @@ management:
       exposure:
         include: health
 
-ab:
-  exposures-topic: ab.exposures
-
 logging:
   level:
     com.example.ab: INFO
-    org.springframework.kafka: WARN
