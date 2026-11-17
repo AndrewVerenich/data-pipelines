@@ -11,5 +11,5 @@ import org.springframework.scheduling.annotation.EnableScheduling
 class SimulatorApplication
 
 fun main(args: Array<String>) {
-    runApplication<SimulatorApplication>(*args)
+  runApplication<SimulatorApplication>(*args)
 }
